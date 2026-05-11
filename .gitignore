@@ -1,6 +1,3 @@
-# If you're building an application, you should check-in your pubspec.lock
-# Do not ignore pubspec.lock for Flutter apps
-
 # Flutter/Dart
 .dart_tool/
 .flutter-plugins
