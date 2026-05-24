@@ -25,4 +25,4 @@ Aplicativo desenvolvido em Flutter para gerenciamento de clientes, produtos, ser
 Clone o repositório:
 
 ```bash
-git clone https://github.com/NOME-DA-ORGANIZACAO/projeto-jl-serralheria.git
+git clone https://github.com/jl-serralheria-unisantos/projeto-jl-serralheria.git
