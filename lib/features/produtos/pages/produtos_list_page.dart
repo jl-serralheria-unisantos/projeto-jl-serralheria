@@ -17,6 +17,13 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
   final TextEditingController _buscaController = TextEditingController();
   String _busca = '';
   late String _categoria = widget.categoriaInicial ?? 'Todas';
+  late AppState _state;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _state = AppStateScope.of(context);
+  }
 
   @override
   void dispose() {
@@ -26,7 +33,13 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
+    return ListenableBuilder(
+      listenable: _state,
+      builder: (context, _) => _buildContent(context, _state),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, AppState state) {
     final categorias = ['Todas', ...state.categoriasProdutos];
     final produtos = state.produtos
         .where((produto) {
@@ -158,8 +171,7 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
     BuildContext context, [
     Produto? produto,
   ]) async {
-    final state = AppStateScope.read(context);
-    final formKey = GlobalKey<FormState>();
+    final state = _state;
     final nomeController = TextEditingController(text: produto?.nome ?? '');
     final codigoController = TextEditingController(text: produto?.codigo ?? '');
     final categoriaController = TextEditingController(
@@ -179,6 +191,7 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
+        final formKey = GlobalKey<FormState>();
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -302,23 +315,30 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
                   child: const Text('Cancelar'),
                 ),
                 FilledButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
-                    state.salvarProduto(
-                      Produto(
-                        id: produto?.id,
-                        nome: nomeController.text.trim(),
-                        codigo: codigoController.text.trim().isEmpty
-                            ? null
-                            : codigoController.text.trim(),
-                        categoria: categoriaController.text.trim(),
-                        unidade: unidadeController.text.trim(),
-                        valorBase: parseDecimal(valorController.text),
-                        observacoes: observacoesController.text.trim(),
-                        ativo: ativo,
-                      ),
+                    final novoProduto = Produto(
+                      id: produto?.id,
+                      nome: nomeController.text.trim(),
+                      codigo: codigoController.text.trim().isEmpty
+                          ? null
+                          : codigoController.text.trim(),
+                      categoria: categoriaController.text.trim(),
+                      unidade: unidadeController.text.trim(),
+                      valorBase: parseDecimal(valorController.text),
+                      observacoes: observacoesController.text.trim(),
+                      ativo: ativo,
                     );
-                    Navigator.of(dialogContext).pop();
+                    try {
+                      await state.salvarProduto(novoProduto);
+                      if (!dialogContext.mounted) return;
+                      Navigator.of(dialogContext).pop();
+                    } catch (e) {
+                      if (!dialogContext.mounted) return;
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                        SnackBar(content: Text('Erro ao salvar produto: $e')),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.check),
                   label: const Text('Salvar'),
@@ -339,15 +359,14 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
   }
 
   Future<void> _confirmarExclusao(BuildContext context, Produto produto) async {
-    final state = AppStateScope.read(context);
+    final state = _state;
+    final id = produto.id!;
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Excluir produto'),
-          content: Text(
-            'Remover ${produto.codigo ?? produto.nome} do catálogo?',
-          ),
+          content: Text('Remover ${produto.codigo ?? produto.nome} do catálogo?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -361,9 +380,8 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
         );
       },
     );
-
     if (confirmado ?? false) {
-      state.excluirProduto(produto.id!);
+      state.excluirProduto(id);
     }
   }
 }

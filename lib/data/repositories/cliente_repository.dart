@@ -1,64 +1,34 @@
-import '../database/app_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/cliente_model.dart';
 
 class ClienteRepository {
-  Future<int> inserir(Cliente cliente) async {
-    final db = await AppDatabase.instance.database;
-    final data = cliente.toMap()..remove('id');
+  final _col = FirebaseFirestore.instance.collection('clientes');
 
-    return db.insert('clientes', data);
+  Future<String> inserir(Cliente cliente) async {
+    final doc = await _col.add(cliente.toFirestore());
+    return doc.id;
   }
 
   Future<List<Cliente>> listarTodos() async {
-    final db = await AppDatabase.instance.database;
-
-    final result = await db.query(
-      'clientes',
-      orderBy: 'nome ASC',
-    );
-
-    return result.map(Cliente.fromMap).toList();
+    final snapshot = await _col.orderBy('nome').get();
+    return snapshot.docs.map(Cliente.fromFirestore).toList();
   }
 
-  Future<Cliente?> buscarPorId(int id) async {
-    final db = await AppDatabase.instance.database;
-
-    final result = await db.query(
-      'clientes',
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-
-    if (result.isEmpty) return null;
-
-    return Cliente.fromMap(result.first);
+  Future<Cliente?> buscarPorId(String id) async {
+    final doc = await _col.doc(id).get();
+    if (!doc.exists) return null;
+    return Cliente.fromFirestore(doc);
   }
 
-  Future<int> atualizar(Cliente cliente) async {
-    final db = await AppDatabase.instance.database;
-
+  Future<void> atualizar(Cliente cliente) async {
     if (cliente.id == null) {
       throw ArgumentError('Cliente sem id não pode ser atualizado.');
     }
-
-    final data = cliente.toMap()..remove('id');
-
-    return db.update(
-      'clientes',
-      data,
-      where: 'id = ?',
-      whereArgs: [cliente.id],
-    );
+    await _col.doc(cliente.id).update(cliente.toFirestore());
   }
 
-  Future<int> excluir(int id) async {
-    final db = await AppDatabase.instance.database;
-
-    return db.delete(
-      'clientes',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+  Future<void> excluir(String id) async {
+    await _col.doc(id).delete();
   }
 }

@@ -1,77 +1,35 @@
-import '../database/app_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/produto_model.dart';
 
 class ProdutoRepository {
-  Future<int> inserir(Produto produto) async {
-    final db = await AppDatabase.instance.database;
-    final data = produto.toMap()..remove('id');
+  final _col = FirebaseFirestore.instance.collection('produtos');
 
-    return db.insert('produtos', data);
+  Future<String> inserir(Produto produto) async {
+    final doc = await _col.add(produto.toFirestore());
+    return doc.id;
   }
 
   Future<List<Produto>> listarTodos() async {
-    final db = await AppDatabase.instance.database;
-
-    final result = await db.query(
-      'produtos',
-      orderBy: 'categoria ASC, nome ASC',
-    );
-
-    return result.map(Produto.fromMap).toList();
+    final snapshot = await _col.orderBy('nome').get();
+    final lista = snapshot.docs.map(Produto.fromFirestore).toList();
+    // Ordena localmente por categoria depois nome (evita índice composto)
+    lista.sort((a, b) {
+      final cat = a.categoria.compareTo(b.categoria);
+      if (cat != 0) return cat;
+      return (a.codigo ?? a.nome).compareTo(b.codigo ?? b.nome);
+    });
+    return lista;
   }
 
-  Future<List<Produto>> listarAtivos() async {
-    final db = await AppDatabase.instance.database;
-
-    final result = await db.query(
-      'produtos',
-      where: 'ativo = ?',
-      whereArgs: [1],
-      orderBy: 'categoria ASC, nome ASC',
-    );
-
-    return result.map(Produto.fromMap).toList();
-  }
-
-  Future<Produto?> buscarPorId(int id) async {
-    final db = await AppDatabase.instance.database;
-
-    final result = await db.query(
-      'produtos',
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-
-    if (result.isEmpty) return null;
-
-    return Produto.fromMap(result.first);
-  }
-
-  Future<int> atualizar(Produto produto) async {
-    final db = await AppDatabase.instance.database;
-
+  Future<void> atualizar(Produto produto) async {
     if (produto.id == null) {
       throw ArgumentError('Produto sem id não pode ser atualizado.');
     }
-
-    final data = produto.toMap()..remove('id');
-
-    return db.update(
-      'produtos',
-      data,
-      where: 'id = ?',
-      whereArgs: [produto.id],
-    );
+    await _col.doc(produto.id).update(produto.toFirestore());
   }
 
-  Future<int> excluir(int id) async {
-    final db = await AppDatabase.instance.database;
-
-    return db.delete(
-      'produtos',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+  Future<void> excluir(String id) async {
+    await _col.doc(id).delete();
   }
 }
