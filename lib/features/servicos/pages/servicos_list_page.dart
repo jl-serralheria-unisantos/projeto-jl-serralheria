@@ -14,6 +14,13 @@ class ServicosListPage extends StatefulWidget {
 class _ServicosListPageState extends State<ServicosListPage> {
   final TextEditingController _buscaController = TextEditingController();
   String _busca = '';
+  late AppState _state;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _state = AppStateScope.of(context);
+  }
 
   @override
   void dispose() {
@@ -23,7 +30,13 @@ class _ServicosListPageState extends State<ServicosListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
+    return ListenableBuilder(
+      listenable: _state,
+      builder: (context, _) => _buildContent(context, _state),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, AppState state) {
     final servicos = state.servicos
         .where((servico) {
           final termo = _busca.toLowerCase();
@@ -173,8 +186,7 @@ class _ServicosListPageState extends State<ServicosListPage> {
     BuildContext context, [
     Servico? servico,
   ]) async {
-    final state = AppStateScope.read(context);
-    final formKey = GlobalKey<FormState>();
+    final state = _state;
     final nomeController = TextEditingController(text: servico?.nome ?? '');
     final unidadeController = TextEditingController(
       text: servico?.unidade ?? 'serviço',
@@ -190,6 +202,7 @@ class _ServicosListPageState extends State<ServicosListPage> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
+        final formKey = GlobalKey<FormState>();
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -274,19 +287,26 @@ class _ServicosListPageState extends State<ServicosListPage> {
                   child: const Text('Cancelar'),
                 ),
                 FilledButton.icon(
-                  onPressed: () {
+                  onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
-                    state.salvarServico(
-                      Servico(
-                        id: servico?.id,
-                        nome: nomeController.text.trim(),
-                        unidade: unidadeController.text.trim(),
-                        valorBase: parseDecimal(valorController.text),
-                        observacoes: observacoesController.text.trim(),
-                        ativo: ativo,
-                      ),
+                    final novoServico = Servico(
+                      id: servico?.id,
+                      nome: nomeController.text.trim(),
+                      unidade: unidadeController.text.trim(),
+                      valorBase: parseDecimal(valorController.text),
+                      observacoes: observacoesController.text.trim(),
+                      ativo: ativo,
                     );
-                    Navigator.of(dialogContext).pop();
+                    try {
+                      await state.salvarServico(novoServico);
+                      if (!dialogContext.mounted) return;
+                      Navigator.of(dialogContext).pop();
+                    } catch (e) {
+                      if (!dialogContext.mounted) return;
+                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                        SnackBar(content: Text('Erro ao salvar serviço: $e')),
+                      );
+                    }
                   },
                   icon: const Icon(Icons.check),
                   label: const Text('Salvar'),
@@ -305,7 +325,8 @@ class _ServicosListPageState extends State<ServicosListPage> {
   }
 
   Future<void> _confirmarExclusao(BuildContext context, Servico servico) async {
-    final state = AppStateScope.read(context);
+    final state = _state;
+    final id = servico.id!;
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -325,9 +346,8 @@ class _ServicosListPageState extends State<ServicosListPage> {
         );
       },
     );
-
     if (confirmado ?? false) {
-      state.excluirServico(servico.id!);
+      state.excluirServico(id);
     }
   }
 }

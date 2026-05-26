@@ -2,210 +2,231 @@ import 'package:flutter/material.dart';
 
 import '../../../app_state.dart';
 import '../../../data/models/cliente_model.dart';
+import '../../../data/models/orcamento_model.dart';
 import '../../../shared/formatters.dart';
 
-class OrcamentoDetalhePage extends StatelessWidget {
+class OrcamentoDetalhePage extends StatefulWidget {
   const OrcamentoDetalhePage({super.key, required this.orcamentoId});
 
-  final int orcamentoId;
+  final String orcamentoId;
+
+  @override
+  State<OrcamentoDetalhePage> createState() => _OrcamentoDetalhePageState();
+}
+
+class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
+  late AppState _state;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _state = AppStateScope.of(context);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
-    final orcamento = state.orcamentoPorId(orcamentoId);
+    return ListenableBuilder(
+      listenable: _state,
+      builder: (context, _) {
+        final orcamento = _state.orcamentoPorId(widget.orcamentoId);
 
-    if (orcamento == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Orçamento')),
-        body: const Center(child: Text('Orçamento não encontrado.')),
-      );
-    }
+        if (orcamento == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Orçamento')),
+            body: const Center(child: Text('Orçamento não encontrado.')),
+          );
+        }
 
-    final cliente = state.clientePorId(orcamento.clienteId);
-    final theme = Theme.of(context);
+        final cliente = _state.clientePorId(orcamento.clienteId);
+        final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Orçamento #${orcamento.id.toString().padLeft(3, '0')}'),
-        actions: [
-          IconButton(
-            tooltip: 'Excluir orçamento',
-            icon: const Icon(Icons.delete_outline),
-            onPressed: () => _confirmarExclusao(context, orcamento.id),
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Orçamento #${orcamento.id?.substring(0, 6).toUpperCase() ?? '---'}'),
+            actions: [
+              IconButton(
+                tooltip: 'Excluir orçamento',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () => _confirmarExclusao(context, orcamento.id),
+              ),
+            ],
           ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1040),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final isWide = constraints.maxWidth >= 760;
-                          final clienteBox = _ClienteResumo(cliente: cliente);
-                          final statusBox = _StatusResumo(orcamento: orcamento);
-                          if (isWide) {
-                            return Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(child: clienteBox),
-                                const SizedBox(width: 18),
-                                SizedBox(width: 300, child: statusBox),
-                              ],
-                            );
-                          }
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              clienteBox,
-                              const SizedBox(height: 16),
-                              statusBox,
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Itens',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  ...orcamento.itens.map((item) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Card(
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1040),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Card(
                         child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                _iconForTipo(item.tipo),
-                                color: const Color(0xFF2F6F63),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
+                          padding: const EdgeInsets.all(18),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isWide = constraints.maxWidth >= 760;
+                              final clienteBox = _ClienteResumo(cliente: cliente);
+                              final statusBox = _StatusResumo(
+                                orcamento: orcamento,
+                                state: _state,
+                              );
+                              if (isWide) {
+                                return Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      item.descricao,
-                                      style: const TextStyle(
+                                    Expanded(child: clienteBox),
+                                    const SizedBox(width: 18),
+                                    SizedBox(width: 300, child: statusBox),
+                                  ],
+                                );
+                              }
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  clienteBox,
+                                  const SizedBox(height: 16),
+                                  statusBox,
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Itens',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      ...orcamento.itens.map((item) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(
+                                    _iconForTipo(item.tipo),
+                                    color: const Color(0xFF2F6F63),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.descricao,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${decimalText(item.quantidade)} ${item.unidade} × ${formatMoney(item.valorUnitario)}',
+                                        ),
+                                        if ((item.observacoes ?? '').isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            item.observacoes!,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: theme.textTheme.bodySmall,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    formatMoney(item.subtotal),
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 8),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            children: [
+                              _TotalLinha(
+                                label: 'Subtotal',
+                                value: formatMoney(orcamento.subtotal),
+                              ),
+                              _TotalLinha(
+                                label: 'Desconto',
+                                value: formatMoney(orcamento.desconto),
+                              ),
+                              const Divider(height: 24),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      'Valor final',
+                                      style: theme.textTheme.titleLarge?.copyWith(
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${decimalText(item.quantidade)} ${item.unidade} × ${formatMoney(item.valorUnitario)}',
+                                  ),
+                                  Text(
+                                    formatMoney(orcamento.valorFinal),
+                                    style: theme.textTheme.headlineSmall?.copyWith(
+                                      color: const Color(0xFF2F6F63),
+                                      fontWeight: FontWeight.w900,
                                     ),
-                                    if ((item.observacoes ?? '')
-                                        .isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        item.observacoes!,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.bodySmall,
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text(
-                                formatMoney(item.subtotal),
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
                       ),
-                    );
-                  }),
-                  const SizedBox(height: 8),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        children: [
-                          _TotalLinha(
-                            label: 'Subtotal',
-                            value: formatMoney(orcamento.subtotal),
-                          ),
-                          _TotalLinha(
-                            label: 'Desconto',
-                            value: formatMoney(orcamento.desconto),
-                          ),
-                          const Divider(height: 24),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Valor final',
-                                  style: theme.textTheme.titleLarge?.copyWith(
+                      if (orcamento.observacoes.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(18),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Observações',
+                                  style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                              ),
-                              Text(
-                                formatMoney(orcamento.valorFinal),
-                                style: theme.textTheme.headlineSmall?.copyWith(
-                                  color: const Color(0xFF2F6F63),
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (orcamento.observacoes.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(18),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Observações',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w800,
-                              ),
+                                const SizedBox(height: 8),
+                                Text(orcamento.observacoes),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(orcamento.observacoes),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                ],
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Future<void> _confirmarExclusao(BuildContext context, int id) async {
-    final state = AppStateScope.read(context);
+  Future<void> _confirmarExclusao(BuildContext context, String? id) async {
+    if (id == null) return;
+    final state = _state;
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -279,13 +300,13 @@ class _ClienteResumo extends StatelessWidget {
 }
 
 class _StatusResumo extends StatelessWidget {
-  const _StatusResumo({required this.orcamento});
+  const _StatusResumo({required this.orcamento, required this.state});
 
-  final OrcamentoRegistro orcamento;
+  final Orcamento orcamento;
+  final AppState state;
 
   @override
   Widget build(BuildContext context) {
-    final state = AppStateScope.read(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -300,7 +321,7 @@ class _StatusResumo extends StatelessWidget {
           ],
           onChanged: (value) {
             if (value != null) {
-              state.atualizarStatusOrcamento(orcamento.id, value);
+              state.atualizarStatusOrcamento(orcamento.id!, value);
             }
           },
         ),

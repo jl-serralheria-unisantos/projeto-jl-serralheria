@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Produto {
-  final int? id;
+  final String? id;
   final String nome;
   final String? codigo;
   final String categoria;
@@ -19,29 +21,29 @@ class Produto {
     this.ativo = true,
   });
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toFirestore() {
     return {
-      'id': id,
       'nome': nome,
       'codigo': codigo,
       'categoria': categoria,
       'unidade': unidade,
       'valor_base': valorBase,
       'observacoes': observacoes,
-      'ativo': ativo ? 1 : 0,
+      'ativo': ativo,
     };
   }
 
-  factory Produto.fromMap(Map<String, dynamic> map) {
+  factory Produto.fromFirestore(DocumentSnapshot doc) {
+    final map = doc.data() as Map<String, dynamic>;
     return Produto(
-      id: map['id'] as int?,
+      id: doc.id,
       nome: map['nome'] as String,
       codigo: map['codigo'] as String?,
       categoria: map['categoria'] as String,
       unidade: map['unidade'] as String,
       valorBase: (map['valor_base'] as num).toDouble(),
       observacoes: map['observacoes'] as String?,
-      ativo: map['ativo'] == 1,
+      ativo: map['ativo'] as bool? ?? true,
     );
   }
 }

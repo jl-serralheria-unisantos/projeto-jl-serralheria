@@ -1,77 +1,28 @@
-import '../database/app_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/servico_model.dart';
 
 class ServicoRepository {
-  Future<int> inserir(Servico servico) async {
-    final db = await AppDatabase.instance.database;
-    final data = servico.toMap()..remove('id');
+  final _col = FirebaseFirestore.instance.collection('servicos');
 
-    return db.insert('servicos', data);
+  Future<String> inserir(Servico servico) async {
+    final doc = await _col.add(servico.toFirestore());
+    return doc.id;
   }
 
   Future<List<Servico>> listarTodos() async {
-    final db = await AppDatabase.instance.database;
-
-    final result = await db.query(
-      'servicos',
-      orderBy: 'nome ASC',
-    );
-
-    return result.map(Servico.fromMap).toList();
+    final snapshot = await _col.orderBy('nome').get();
+    return snapshot.docs.map(Servico.fromFirestore).toList();
   }
 
-  Future<List<Servico>> listarAtivos() async {
-    final db = await AppDatabase.instance.database;
-
-    final result = await db.query(
-      'servicos',
-      where: 'ativo = ?',
-      whereArgs: [1],
-      orderBy: 'nome ASC',
-    );
-
-    return result.map(Servico.fromMap).toList();
-  }
-
-  Future<Servico?> buscarPorId(int id) async {
-    final db = await AppDatabase.instance.database;
-
-    final result = await db.query(
-      'servicos',
-      where: 'id = ?',
-      whereArgs: [id],
-      limit: 1,
-    );
-
-    if (result.isEmpty) return null;
-
-    return Servico.fromMap(result.first);
-  }
-
-  Future<int> atualizar(Servico servico) async {
-    final db = await AppDatabase.instance.database;
-
+  Future<void> atualizar(Servico servico) async {
     if (servico.id == null) {
       throw ArgumentError('Serviço sem id não pode ser atualizado.');
     }
-
-    final data = servico.toMap()..remove('id');
-
-    return db.update(
-      'servicos',
-      data,
-      where: 'id = ?',
-      whereArgs: [servico.id],
-    );
+    await _col.doc(servico.id).update(servico.toFirestore());
   }
 
-  Future<int> excluir(int id) async {
-    final db = await AppDatabase.instance.database;
-
-    return db.delete(
-      'servicos',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+  Future<void> excluir(String id) async {
+    await _col.doc(id).delete();
   }
 }

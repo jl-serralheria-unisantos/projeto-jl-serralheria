@@ -1,5 +1,7 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Cliente {
-  final int? id;
+  final String? id;
   final String nome;
   final String telefone;
   final String? endereco;
@@ -13,9 +15,8 @@ class Cliente {
     this.observacoes,
   });
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toFirestore() {
     return {
-      'id': id,
       'nome': nome,
       'telefone': telefone,
       'endereco': endereco,
@@ -23,9 +24,10 @@ class Cliente {
     };
   }
 
-  factory Cliente.fromMap(Map<String, dynamic> map) {
+  factory Cliente.fromFirestore(DocumentSnapshot doc) {
+    final map = doc.data() as Map<String, dynamic>;
     return Cliente(
-      id: map['id'] as int?,
+      id: doc.id,
       nome: map['nome'] as String,
       telefone: map['telefone'] as String,
       endereco: map['endereco'] as String?,

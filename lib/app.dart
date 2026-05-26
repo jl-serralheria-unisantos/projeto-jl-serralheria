@@ -58,7 +58,8 @@ class _SerralheriaAppState extends State<SerralheriaApp> {
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
             fillColor: Colors.white,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Color(0xFFD8D2C8)),
@@ -69,22 +70,117 @@ class _SerralheriaAppState extends State<SerralheriaApp> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 18, vertical: 14),
             ),
           ),
-          floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          floatingActionButtonTheme:
+              const FloatingActionButtonThemeData(
             backgroundColor: Color(0xFFB56B1E),
             foregroundColor: Colors.white,
           ),
         ),
-        home: const HomePage(),
+        home: ListenableBuilder(
+          listenable: _state,
+          builder: (context, _) {
+            if (_state.carregando) return const _LoadingPage();
+            if (_state.erroCarregamento != null) {
+              return _ErrorPage(
+                erro: _state.erroCarregamento!,
+                onRetry: () => _state.carregarTudo(),
+              );
+            }
+            return const HomePage();
+          },
+        ),
       ),
     );
   }
 }
 
-class HomePage extends StatelessWidget {
+class _LoadingPage extends StatelessWidget {
+  const _LoadingPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Carregando dados...'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorPage extends StatelessWidget {
+  const _ErrorPage({required this.erro, required this.onRetry});
+
+  final String erro;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              const Text(
+                'Erro ao conectar com o Firebase',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Text(
+                  erro,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Tentar novamente'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  late AppState _state;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _state = AppStateScope.of(context);
+  }
 
   void _abrirTela(BuildContext context, Widget page) {
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
@@ -92,15 +188,18 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
-    final theme = Theme.of(context);
-    final isCompact = MediaQuery.sizeOf(context).width < 560;
-    final totalAberto = state.orcamentos.fold<double>(
-      0,
-      (total, orcamento) => total + orcamento.valorFinal,
-    );
+    return ListenableBuilder(
+      listenable: _state,
+      builder: (context, _) {
+        final state = _state;
+        final theme = Theme.of(context);
+        final isCompact = MediaQuery.sizeOf(context).width < 560;
+        final totalAberto = state.orcamentos.fold<double>(
+          0,
+          (total, orcamento) => total + orcamento.valorFinal,
+        );
 
-    return Scaffold(
+        return Scaffold(
       appBar: AppBar(
         title: const Text('JL Serralheria'),
         actions: [
@@ -288,7 +387,7 @@ class HomePage extends StatelessWidget {
                                     Icons.description_outlined,
                                   ),
                                   title: Text(
-                                    'Orçamento #${orcamento.id.toString().padLeft(3, '0')}',
+                                    'Orçamento #${(orcamento.id ?? '').substring(0, (orcamento.id ?? '').length.clamp(0, 6)).toUpperCase()}',
                                   ),
                                   subtitle: Text(
                                     '${cliente?.nome ?? 'Cliente removido'} • ${formatDate(orcamento.dataCriacao)}',
@@ -311,6 +410,8 @@ class HomePage extends StatelessWidget {
           },
         ),
       ),
+    );
+      },
     );
   }
 }

@@ -22,7 +22,8 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
 
   final List<OrcamentoItem> _itens = [];
   int _tempItemId = -1;
-  int? _clienteId;
+  String? _clienteId;
+  late AppState _state;
 
   double get _subtotal {
     return _itens.fold<double>(0, (total, item) => total + item.subtotal);
@@ -36,6 +37,12 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _state = AppStateScope.of(context);
+  }
+
+  @override
   void dispose() {
     _descontoController.dispose();
     _validadeController.dispose();
@@ -45,12 +52,17 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
+    final state = _state;
     if (_clienteId == null && state.clientes.isNotEmpty) {
       _clienteId = state.clientes.first.id;
     }
-
-    return Scaffold(
+    return ListenableBuilder(
+      listenable: state,
+      builder: (context, _) {
+        if (_clienteId == null && state.clientes.isNotEmpty) {
+          _clienteId = state.clientes.first.id;
+        }
+        return Scaffold(
       appBar: AppBar(title: const Text('Novo orçamento')),
       body: SafeArea(
         child: state.clientes.isEmpty
@@ -135,10 +147,13 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
               ),
       ),
     );
+      },
+    );
   }
 
   Widget _buildDadosOrcamento() {
     return _DadosOrcamento(
+      state: _state,
       clienteId: _clienteId,
       onClienteChanged: (value) => setState(() => _clienteId = value),
       descontoController: _descontoController,
@@ -161,10 +176,9 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     BuildContext context, [
     OrcamentoItem? item,
   ]) async {
-    final state = AppStateScope.read(context);
-    final formKey = GlobalKey<FormState>();
+    final state = _state;
     var tipo = item?.tipo ?? 'produto';
-    int? origemId = item?.origemId;
+    String? origemId = item?.origemId;
     final descricaoController = TextEditingController(
       text: item?.descricao ?? '',
     );
@@ -181,7 +195,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
       text: item?.observacoes ?? '',
     );
 
-    void aplicarProduto(int? id) {
+    void aplicarProduto(String? id) {
       final produto = id == null ? null : state.produtoPorId(id);
       if (produto == null) return;
       descricaoController.text = [
@@ -193,7 +207,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
       observacoesController.text = produto.observacoes ?? '';
     }
 
-    void aplicarServico(int? id) {
+    void aplicarServico(String? id) {
       final servico = id == null ? null : state.servicoPorId(id);
       if (servico == null) return;
       descricaoController.text = servico.nome;
@@ -224,6 +238,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
+        final formKey = GlobalKey<FormState>();
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final produtos = state.produtosAtivos;
@@ -275,14 +290,14 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
                         ),
                         if (tipo == 'produto') ...[
                           const SizedBox(height: 12),
-                          DropdownButtonFormField<int>(
+                          DropdownButtonFormField<String>(
                             initialValue: origemId,
                             isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Produto',
                             ),
                             items: produtos.map((produto) {
-                              return DropdownMenuItem<int>(
+                              return DropdownMenuItem<String>(
                                 value: produto.id,
                                 child: Text(
                                   '${produto.codigo ?? produto.nome} • ${produto.categoria}',
@@ -304,14 +319,14 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
                         ],
                         if (tipo == 'servico') ...[
                           const SizedBox(height: 12),
-                          DropdownButtonFormField<int>(
+                          DropdownButtonFormField<String>(
                             initialValue: origemId,
                             isExpanded: true,
                             decoration: const InputDecoration(
                               labelText: 'Serviço',
                             ),
                             items: servicos.map((servico) {
-                              return DropdownMenuItem<int>(
+                              return DropdownMenuItem<String>(
                                 value: servico.id,
                                 child: Text(
                                   servico.nome,
@@ -432,6 +447,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
                       observacoes: observacoesController.text.trim(),
                     );
 
+                    Navigator.of(dialogContext).pop();
                     setState(() {
                       final index = _itens.indexWhere(
                         (element) => element.id == item?.id,
@@ -442,7 +458,6 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
                         _itens.add(novo);
                       }
                     });
-                    Navigator.of(dialogContext).pop();
                   },
                   icon: const Icon(Icons.check),
                   label: const Text('Aplicar'),
@@ -472,20 +487,27 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
       return;
     }
 
-    final state = AppStateScope.read(context);
-    state.salvarOrcamento(
-      clienteId: _clienteId!,
-      itens: _itens,
-      desconto: _desconto,
-      validadeDias: int.tryParse(_validadeController.text.trim()) ?? 7,
-      observacoes: _observacoesController.text.trim(),
-    );
+    final state = _state;
+    final clienteId = _clienteId!;
+    final itens = List<OrcamentoItem>.from(_itens);
+    final desconto = _desconto;
+    final validadeDias = int.tryParse(_validadeController.text.trim()) ?? 7;
+    final observacoes = _observacoesController.text.trim();
+
     Navigator.of(context).pop();
+    state.salvarOrcamento(
+      clienteId: clienteId,
+      itens: itens,
+      desconto: desconto,
+      validadeDias: validadeDias,
+      observacoes: observacoes,
+    );
   }
 }
 
 class _DadosOrcamento extends StatelessWidget {
   const _DadosOrcamento({
+    required this.state,
     required this.clienteId,
     required this.onClienteChanged,
     required this.descontoController,
@@ -494,8 +516,9 @@ class _DadosOrcamento extends StatelessWidget {
     required this.onChanged,
   });
 
-  final int? clienteId;
-  final ValueChanged<int?> onClienteChanged;
+  final AppState state;
+  final String? clienteId;
+  final ValueChanged<String?> onClienteChanged;
   final TextEditingController descontoController;
   final TextEditingController validadeController;
   final TextEditingController observacoesController;
@@ -503,8 +526,6 @@ class _DadosOrcamento extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -518,12 +539,12 @@ class _DadosOrcamento extends StatelessWidget {
               ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 14),
-            DropdownButtonFormField<int>(
+            DropdownButtonFormField<String>(
               initialValue: clienteId,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Cliente'),
               items: state.clientes.map((cliente) {
-                return DropdownMenuItem<int>(
+                return DropdownMenuItem<String>(
                   value: cliente.id,
                   child: Text(cliente.nome, overflow: TextOverflow.ellipsis),
                 );

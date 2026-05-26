@@ -13,6 +13,13 @@ class ClientesListPage extends StatefulWidget {
 class _ClientesListPageState extends State<ClientesListPage> {
   final TextEditingController _buscaController = TextEditingController();
   String _busca = '';
+  late AppState _state;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _state = AppStateScope.of(context);
+  }
 
   @override
   void dispose() {
@@ -22,7 +29,13 @@ class _ClientesListPageState extends State<ClientesListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final state = AppStateScope.of(context);
+    return ListenableBuilder(
+      listenable: _state,
+      builder: (context, _) => _buildContent(context, _state),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, AppState state) {
     final clientes = state.clientes
         .where((cliente) {
           final termo = _busca.toLowerCase();
@@ -145,9 +158,8 @@ class _ClientesListPageState extends State<ClientesListPage> {
     BuildContext context, [
     Cliente? cliente,
   ]) async {
-    final state = AppStateScope.read(context);
-    final formKey = GlobalKey<FormState>();
-    final nomeController = TextEditingController(text: cliente?.nome ?? '');
+    final state = _state;
+    final formKey = GlobalKey<FormState>();    final nomeController = TextEditingController(text: cliente?.nome ?? '');
     final telefoneController = TextEditingController(
       text: cliente?.telefone ?? '',
     );
@@ -221,18 +233,32 @@ class _ClientesListPageState extends State<ClientesListPage> {
               child: const Text('Cancelar'),
             ),
             FilledButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 if (!formKey.currentState!.validate()) return;
-                state.salvarCliente(
-                  Cliente(
-                    id: cliente?.id,
-                    nome: nomeController.text.trim(),
-                    telefone: telefoneController.text.trim(),
-                    endereco: enderecoController.text.trim(),
-                    observacoes: observacoesController.text.trim(),
-                  ),
+
+                final novoCliente = Cliente(
+                  id: cliente?.id,
+                  nome: nomeController.text.trim(),
+                  telefone: telefoneController.text.trim(),
+                  endereco: enderecoController.text.trim(),
+                  observacoes: observacoesController.text.trim(),
                 );
-                Navigator.of(dialogContext).pop();
+
+                try {
+                  await state.salvarCliente(novoCliente);
+
+                  if (!context.mounted) return;
+
+                  Navigator.of(dialogContext).pop();
+                } catch (e) {
+                  if (!context.mounted) return;
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Erro ao salvar cliente: $e'),
+                    ),
+                  );
+                }
               },
               icon: const Icon(Icons.check),
               label: const Text('Salvar'),
@@ -249,7 +275,7 @@ class _ClientesListPageState extends State<ClientesListPage> {
   }
 
   Future<void> _confirmarExclusao(BuildContext context, Cliente cliente) async {
-    final state = AppStateScope.read(context);
+    final state = _state;
     final confirmado = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -273,8 +299,7 @@ class _ClientesListPageState extends State<ClientesListPage> {
     if (confirmado ?? false) {
       state.excluirCliente(cliente.id!);
     }
-  }
-}
+  }}
 
 class _EmptyClientes extends StatelessWidget {
   const _EmptyClientes({required this.onCreate});
