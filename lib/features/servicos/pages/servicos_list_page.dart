@@ -254,6 +254,12 @@ class _ServicosListPageState extends State<ServicosListPage> {
                                 decoration: const InputDecoration(
                                   labelText: 'Valor base',
                                 ),
+                                validator: (value) {
+                                  if (parseDecimal(value ?? '') < 0) {
+                                    return 'Informe um valor valido.';
+                                  }
+                                  return null;
+                                },
                               ),
                             ),
                           ],
@@ -347,7 +353,14 @@ class _ServicosListPageState extends State<ServicosListPage> {
       },
     );
     if (confirmado ?? false) {
-      state.excluirServico(id);
+      try {
+        await state.excluirServico(id);
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao excluir servico: $e')),
+        );
+      }
     }
   }
 }

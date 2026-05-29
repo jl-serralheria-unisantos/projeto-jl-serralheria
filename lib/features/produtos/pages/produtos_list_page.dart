@@ -381,7 +381,14 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
       },
     );
     if (confirmado ?? false) {
-      state.excluirProduto(id);
+      try {
+        await state.excluirProduto(id);
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao excluir produto: $e')),
+        );
+      }
     }
   }
 }

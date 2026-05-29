@@ -297,7 +297,14 @@ class _ClientesListPageState extends State<ClientesListPage> {
     );
 
     if (confirmado ?? false) {
-      state.excluirCliente(cliente.id!);
+      try {
+        await state.excluirCliente(cliente.id!);
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao excluir cliente: $e')),
+        );
+      }
     }
   }}
 

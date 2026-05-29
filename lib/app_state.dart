@@ -207,9 +207,15 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> excluirCliente(String id) async {
+    final temOrcamentoVinculado = orcamentos.any((o) => o.clienteId == id);
+    if (temOrcamentoVinculado) {
+      throw StateError(
+        'Nao e possivel excluir cliente com orcamento vinculado.',
+      );
+    }
+
     await _clienteRepo.excluir(id);
     clientes.removeWhere((c) => c.id == id);
-    orcamentos.removeWhere((o) => o.clienteId == id);
     _notify();
   }
 
