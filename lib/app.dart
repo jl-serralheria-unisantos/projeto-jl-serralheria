@@ -58,8 +58,7 @@ class _SerralheriaAppState extends State<SerralheriaApp> {
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
             fillColor: Colors.white,
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: Color(0xFFD8D2C8)),
@@ -70,12 +69,10 @@ class _SerralheriaAppState extends State<SerralheriaApp> {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 18, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             ),
           ),
-          floatingActionButtonTheme:
-              const FloatingActionButtonThemeData(
+          floatingActionButtonTheme: const FloatingActionButtonThemeData(
             backgroundColor: Color(0xFFB56B1E),
             foregroundColor: Colors.white,
           ),
@@ -200,217 +197,238 @@ class _HomePageState extends State<HomePage> {
         );
 
         return Scaffold(
-      appBar: AppBar(
-        title: const Text('JL Serralheria'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: isCompact
-                ? IconButton.filled(
-                    tooltip: 'Novo orçamento',
-                    onPressed: () =>
-                        _abrirTela(context, const OrcamentoFormPage()),
-                    icon: const Icon(Icons.add),
-                  )
-                : FilledButton.icon(
-                    onPressed: () =>
-                        _abrirTela(context, const OrcamentoFormPage()),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Novo orçamento'),
-                  ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 900;
-            final horizontalPadding = isWide ? 32.0 : 16.0;
-            final availableWidth =
-                constraints.maxWidth - (horizontalPadding * 2);
-            final contentWidth = availableWidth > 1180
-                ? 1180.0
-                : availableWidth;
-            return SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: 16,
+          appBar: AppBar(
+            title: const Text('JL Serralheria'),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: isCompact
+                    ? IconButton.filled(
+                        tooltip: 'Novo orçamento',
+                        onPressed: () =>
+                            _abrirTela(context, const OrcamentoFormPage()),
+                        icon: const Icon(Icons.add),
+                      )
+                    : FilledButton.icon(
+                        onPressed: () =>
+                            _abrirTela(context, const OrcamentoFormPage()),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Novo orçamento'),
+                      ),
               ),
-              child: Center(
-                child: SizedBox(
-                  width: contentWidth,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _HeaderPanel(totalAberto: totalAberto),
-                      const SizedBox(height: 20),
-                      GridView.count(
-                        crossAxisCount: isWide ? 4 : 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        childAspectRatio: isWide ? 1.65 : 1.08,
+            ],
+          ),
+          body: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 900;
+                final horizontalPadding = isWide ? 32.0 : 16.0;
+                final availableWidth =
+                    constraints.maxWidth - (horizontalPadding * 2);
+                final contentWidth = availableWidth > 1180
+                    ? 1180.0
+                    : availableWidth;
+                final useFourColumnCards = contentWidth >= 1000;
+                final double cardAspectRatio;
+                if (useFourColumnCards) {
+                  cardAspectRatio = 1.55;
+                } else if (contentWidth < 520) {
+                  cardAspectRatio = 0.95;
+                } else {
+                  cardAspectRatio = 1.6;
+                }
+                return SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: horizontalPadding,
+                    vertical: 16,
+                  ),
+                  child: Center(
+                    child: SizedBox(
+                      width: contentWidth,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _HomeActionCard(
-                            icon: Icons.groups_2_outlined,
-                            title: 'Clientes',
-                            value: '${state.clientes.length}',
-                            description: 'Nome, telefone e observações',
-                            color: const Color(0xFF2F6F63),
-                            onTap: () =>
-                                _abrirTela(context, const ClientesListPage()),
-                          ),
-                          _HomeActionCard(
-                            icon: Icons.inventory_2_outlined,
-                            title: 'Produtos',
-                            value: '${state.produtos.length}',
-                            description: 'Perfis do catálogo PDF',
-                            color: const Color(0xFF6E5B32),
-                            onTap: () =>
-                                _abrirTela(context, const ProdutosListPage()),
-                          ),
-                          _HomeActionCard(
-                            icon: Icons.handyman_outlined,
-                            title: 'Serviços',
-                            value: '${state.servicos.length}',
-                            description: 'Mão de obra e recorrências',
-                            color: const Color(0xFF8C4F24),
-                            onTap: () =>
-                                _abrirTela(context, const ServicosListPage()),
-                          ),
-                          _HomeActionCard(
-                            icon: Icons.request_quote_outlined,
-                            title: 'Orçamentos',
-                            value: '${state.orcamentos.length}',
-                            description: 'Subtotal, desconto e total',
-                            color: const Color(0xFF3F5F88),
-                            onTap: () =>
-                                _abrirTela(context, const OrcamentosListPage()),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: [
-                          _MetricPill(
-                            icon: Icons.picture_as_pdf_outlined,
-                            label: 'Catálogos usados',
-                            value: '2 PDFs',
-                          ),
-                          _MetricPill(
-                            icon: Icons.straighten_outlined,
-                            label: 'Linhas cadastradas',
-                            value: '${state.categoriasProdutos.length}',
-                          ),
-                          _MetricPill(
-                            icon: Icons.payments_outlined,
-                            label: 'Total em propostas',
-                            value: formatMoney(totalAberto),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Linhas do catálogo',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: state.categoriasProdutos.take(18).map((
-                          categoria,
-                        ) {
-                          return ActionChip(
-                            avatar: const Icon(
-                              Icons.category_outlined,
-                              size: 18,
-                            ),
-                            label: Text(categoria),
-                            onPressed: () => _abrirTela(
-                              context,
-                              ProdutosListPage(categoriaInicial: categoria),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Últimos orçamentos',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      if (state.orcamentos.isEmpty)
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(18),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.request_quote_outlined),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    'Nenhum orçamento criado ainda.',
-                                    style: theme.textTheme.bodyLarge,
-                                  ),
-                                ),
-                                TextButton.icon(
-                                  onPressed: () => _abrirTela(
-                                    context,
-                                    const OrcamentoFormPage(),
-                                  ),
-                                  icon: const Icon(Icons.add),
-                                  label: const Text('Criar'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        )
-                      else
-                        Column(
-                          children: state.orcamentos.take(3).map((orcamento) {
-                            final cliente = state.clientePorId(
-                              orcamento.clienteId,
-                            );
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: Card(
-                                child: ListTile(
-                                  leading: const Icon(
-                                    Icons.description_outlined,
-                                  ),
-                                  title: Text(
-                                    'Orçamento #${(orcamento.id ?? '').substring(0, (orcamento.id ?? '').length.clamp(0, 6)).toUpperCase()}',
-                                  ),
-                                  subtitle: Text(
-                                    '${cliente?.nome ?? 'Cliente removido'} • ${formatDate(orcamento.dataCriacao)}',
-                                  ),
-                                  trailing: Text(
-                                    formatMoney(orcamento.valorFinal),
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w800),
-                                  ),
+                          _HeaderPanel(totalAberto: totalAberto),
+                          const SizedBox(height: 20),
+                          GridView.count(
+                            crossAxisCount: useFourColumnCards ? 4 : 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            childAspectRatio: cardAspectRatio,
+                            children: [
+                              _HomeActionCard(
+                                icon: Icons.groups_2_outlined,
+                                title: 'Clientes',
+                                value: '${state.clientes.length}',
+                                description: 'Nome, telefone e observações',
+                                color: const Color(0xFF2F6F63),
+                                onTap: () => _abrirTela(
+                                  context,
+                                  const ClientesListPage(),
                                 ),
                               ),
-                            );
-                          }).toList(),
-                        ),
-                    ],
+                              _HomeActionCard(
+                                icon: Icons.inventory_2_outlined,
+                                title: 'Produtos',
+                                value: '${state.produtos.length}',
+                                description: 'Perfis do catálogo PDF',
+                                color: const Color(0xFF6E5B32),
+                                onTap: () => _abrirTela(
+                                  context,
+                                  const ProdutosListPage(),
+                                ),
+                              ),
+                              _HomeActionCard(
+                                icon: Icons.handyman_outlined,
+                                title: 'Serviços',
+                                value: '${state.servicos.length}',
+                                description: 'Mão de obra e recorrências',
+                                color: const Color(0xFF8C4F24),
+                                onTap: () => _abrirTela(
+                                  context,
+                                  const ServicosListPage(),
+                                ),
+                              ),
+                              _HomeActionCard(
+                                icon: Icons.request_quote_outlined,
+                                title: 'Orçamentos',
+                                value: '${state.orcamentos.length}',
+                                description: 'Subtotal, desconto e total',
+                                color: const Color(0xFF3F5F88),
+                                onTap: () => _abrirTela(
+                                  context,
+                                  const OrcamentosListPage(),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              _MetricPill(
+                                icon: Icons.picture_as_pdf_outlined,
+                                label: 'Catálogos usados',
+                                value: '2 PDFs',
+                              ),
+                              _MetricPill(
+                                icon: Icons.straighten_outlined,
+                                label: 'Linhas cadastradas',
+                                value: '${state.categoriasProdutos.length}',
+                              ),
+                              _MetricPill(
+                                icon: Icons.payments_outlined,
+                                label: 'Total em propostas',
+                                value: formatMoney(totalAberto),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            'Linhas do catálogo',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: state.categoriasProdutos.take(18).map((
+                              categoria,
+                            ) {
+                              return ActionChip(
+                                avatar: const Icon(
+                                  Icons.category_outlined,
+                                  size: 18,
+                                ),
+                                label: Text(categoria),
+                                onPressed: () => _abrirTela(
+                                  context,
+                                  ProdutosListPage(categoriaInicial: categoria),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            'Últimos orçamentos',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          if (state.orcamentos.isEmpty)
+                            Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(18),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.request_quote_outlined),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Nenhum orçamento criado ainda.',
+                                        style: theme.textTheme.bodyLarge,
+                                      ),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () => _abrirTela(
+                                        context,
+                                        const OrcamentoFormPage(),
+                                      ),
+                                      icon: const Icon(Icons.add),
+                                      label: const Text('Criar'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            Column(
+                              children: state.orcamentos.take(3).map((
+                                orcamento,
+                              ) {
+                                final cliente = state.clientePorId(
+                                  orcamento.clienteId,
+                                );
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: Card(
+                                    child: ListTile(
+                                      leading: const Icon(
+                                        Icons.description_outlined,
+                                      ),
+                                      title: Text(
+                                        'Orçamento #${(orcamento.id ?? '').substring(0, (orcamento.id ?? '').length.clamp(0, 6)).toUpperCase()}',
+                                      ),
+                                      subtitle: Text(
+                                        '${cliente?.nome ?? 'Cliente removido'} • ${formatDate(orcamento.dataCriacao)}',
+                                      ),
+                                      trailing: Text(
+                                        formatMoney(orcamento.valorFinal),
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
+                );
+              },
+            ),
+          ),
+        );
       },
     );
   }
