@@ -93,15 +93,16 @@ class _ClientesListPageState extends State<ClientesListPage> {
                                 const SizedBox(height: 10),
                             itemBuilder: (context, index) {
                               final cliente = clientes[index];
+                              final nome = cliente.nome.trim();
+                              final inicial = nome.characters.isEmpty
+                                  ? '?'
+                                  : nome.characters.first.toUpperCase();
                               return Card(
                                 child: ListTile(
                                   leading: CircleAvatar(
                                     backgroundColor: const Color(0xFFE3EFEA),
                                     foregroundColor: const Color(0xFF2F6F63),
-                                    child: Text(
-                                      cliente.nome.characters.first
-                                          .toUpperCase(),
-                                    ),
+                                    child: Text(inicial),
                                   ),
                                   title: Text(
                                     cliente.nome,
@@ -159,7 +160,8 @@ class _ClientesListPageState extends State<ClientesListPage> {
     Cliente? cliente,
   ]) async {
     final state = _state;
-    final formKey = GlobalKey<FormState>();    final nomeController = TextEditingController(text: cliente?.nome ?? '');
+    final formKey = GlobalKey<FormState>();
+    final nomeController = TextEditingController(text: cliente?.nome ?? '');
     final telefoneController = TextEditingController(
       text: cliente?.telefone ?? '',
     );
@@ -254,9 +256,7 @@ class _ClientesListPageState extends State<ClientesListPage> {
                   if (!context.mounted) return;
 
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Erro ao salvar cliente: $e'),
-                    ),
+                    SnackBar(content: Text('Erro ao salvar cliente: $e')),
                   );
                 }
               },
@@ -281,7 +281,7 @@ class _ClientesListPageState extends State<ClientesListPage> {
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Excluir cliente'),
-          content: Text('Remover ${cliente.nome} e os orçamentos vinculados?'),
+          content: Text('Remover ${cliente.nome}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -301,12 +301,18 @@ class _ClientesListPageState extends State<ClientesListPage> {
         await state.excluirCliente(cliente.id!);
       } catch (e) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao excluir cliente: $e')),
-        );
+        final erro = e.toString().toLowerCase();
+        final temOrcamentoVinculado =
+            erro.contains('orcamento') || erro.contains('orçamento');
+        final mensagem = temOrcamentoVinculado
+            ? 'Não é possível excluir este cliente porque há orçamento vinculado a ele.'
+            : 'Erro ao excluir cliente: $e';
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(SnackBar(content: Text(mensagem)));
       }
     }
-  }}
+  }
+}
 
 class _EmptyClientes extends StatelessWidget {
   const _EmptyClientes({required this.onCreate});
