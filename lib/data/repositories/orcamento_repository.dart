@@ -10,9 +10,16 @@ class OrcamentoRepository {
     return doc.id;
   }
 
+  Future<void> atualizar(Orcamento orcamento) async {
+    final id = orcamento.id;
+    if (id == null) {
+      throw ArgumentError('Orcamento sem id nao pode ser atualizado.');
+    }
+    await _col.doc(id).update(orcamento.toFirestore());
+  }
+
   Future<List<Orcamento>> listarTodos() async {
-    final snapshot =
-        await _col.orderBy('data_criacao', descending: true).get();
+    final snapshot = await _col.orderBy('data_criacao', descending: true).get();
     return snapshot.docs.map(Orcamento.fromFirestore).toList();
   }
 

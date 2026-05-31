@@ -62,17 +62,26 @@ class Orcamento {
     );
   }
 
-  Orcamento copyWith({String? status}) {
+  Orcamento copyWith({
+    String? clienteId,
+    DateTime? dataCriacao,
+    String? status,
+    double? desconto,
+    double? valorTotal,
+    String? observacoes,
+    int? validadeDias,
+    List<ItemOrcamentoEmbutido>? itens,
+  }) {
     return Orcamento(
       id: id,
-      clienteId: clienteId,
-      dataCriacao: dataCriacao,
+      clienteId: clienteId ?? this.clienteId,
+      dataCriacao: dataCriacao ?? this.dataCriacao,
       status: status ?? this.status,
-      desconto: desconto,
-      valorTotal: valorTotal,
-      observacoes: observacoes,
-      validadeDias: validadeDias,
-      itens: itens,
+      desconto: desconto ?? this.desconto,
+      valorTotal: valorTotal ?? this.valorTotal,
+      observacoes: observacoes ?? this.observacoes,
+      validadeDias: validadeDias ?? this.validadeDias,
+      itens: itens ?? this.itens,
     );
   }
 }

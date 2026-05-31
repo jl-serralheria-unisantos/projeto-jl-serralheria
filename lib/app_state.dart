@@ -102,6 +102,14 @@ class AppState extends ChangeNotifier {
   String? erroCarregamento;
   int _tempItemId = -1;
 
+  List<Orcamento> get orcamentosEmProposta =>
+      orcamentos.where((o) => o.status != 'recusado').toList(growable: false);
+
+  double get totalEmPropostas => orcamentosEmProposta.fold<double>(
+        0,
+        (total, orcamento) => total + orcamento.valorFinal,
+      );
+
   List<Produto> get produtosAtivos =>
       produtos.where((p) => p.ativo).toList(growable: false);
 
@@ -298,20 +306,10 @@ class AppState extends ChangeNotifier {
     required int validadeDias,
     required String observacoes,
   }) async {
-    final itensEmbutidos = itens
-        .map((item) => ItemOrcamentoEmbutido(
-              tipo: item.tipo,
-              origemId: item.origemId,
-              descricao: item.descricao,
-              quantidade: item.quantidade,
-              unidade: item.unidade,
-              valorUnitario: item.valorUnitario,
-              observacoes: item.observacoes,
-            ))
-        .toList();
+    _validarDadosOrcamento(clienteId: clienteId, itens: itens);
+    final itensEmbutidos = _itensEmbutidos(itens);
 
-    final subtotal =
-        itensEmbutidos.fold<double>(0, (t, i) => t + i.subtotal);
+    final subtotal = itensEmbutidos.fold<double>(0, (t, i) => t + i.subtotal);
     final valorFinal = (subtotal - desconto) < 0 ? 0.0 : subtotal - desconto;
 
     final orcamento = Orcamento(
@@ -338,6 +336,41 @@ class AppState extends ChangeNotifier {
       itens: orcamento.itens,
     );
     orcamentos.insert(0, novo);
+    _notify();
+    return id;
+  }
+
+  Future<String> atualizarOrcamento({
+    required String id,
+    required String clienteId,
+    required List<OrcamentoItem> itens,
+    required double desconto,
+    required int validadeDias,
+    required String observacoes,
+  }) async {
+    _validarDadosOrcamento(clienteId: clienteId, itens: itens);
+
+    final index = orcamentos.indexWhere((o) => o.id == id);
+    if (index < 0) {
+      throw StateError('Orcamento nao encontrado.');
+    }
+
+    final itensEmbutidos = _itensEmbutidos(itens);
+    final subtotal = itensEmbutidos.fold<double>(0, (t, i) => t + i.subtotal);
+    final valorFinal = (subtotal - desconto) < 0 ? 0.0 : subtotal - desconto;
+
+    final atualizado = orcamentos[index].copyWith(
+      clienteId: clienteId,
+      desconto: desconto,
+      valorTotal: valorFinal,
+      validadeDias: validadeDias,
+      observacoes: observacoes,
+      itens: itensEmbutidos,
+    );
+
+    await _orcamentoRepo.atualizar(atualizado);
+    orcamentos[index] = atualizado;
+    _ordenarOrcamentos();
     _notify();
     return id;
   }
@@ -372,6 +405,46 @@ class AppState extends ChangeNotifier {
       if (cat != 0) return cat;
       return (a.codigo ?? a.nome).compareTo(b.codigo ?? b.nome);
     });
+  }
+
+  void _ordenarOrcamentos() {
+    orcamentos.sort((a, b) => b.dataCriacao.compareTo(a.dataCriacao));
+  }
+
+  void _validarDadosOrcamento({
+    required String clienteId,
+    required List<OrcamentoItem> itens,
+  }) {
+    if (clientePorId(clienteId) == null) {
+      throw StateError('Cliente selecionado nao encontrado.');
+    }
+    if (itens.isEmpty) {
+      throw StateError('Inclua pelo menos um item no orcamento.');
+    }
+    for (final item in itens) {
+      if (item.quantidade <= 0) {
+        throw StateError('Quantidade do item deve ser maior que zero.');
+      }
+      if (item.valorUnitario < 0) {
+        throw StateError('Valor unitario do item nao pode ser negativo.');
+      }
+    }
+  }
+
+  List<ItemOrcamentoEmbutido> _itensEmbutidos(List<OrcamentoItem> itens) {
+    return itens
+        .map(
+          (item) => ItemOrcamentoEmbutido(
+            tipo: item.tipo,
+            origemId: item.origemId,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+            valorUnitario: item.valorUnitario,
+            observacoes: item.observacoes,
+          ),
+        )
+        .toList();
   }
 
   // ── Seeds (dados iniciais) ────────────────────────────────────────────────

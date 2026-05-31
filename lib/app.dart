@@ -191,10 +191,7 @@ class _HomePageState extends State<HomePage> {
         final state = _state;
         final theme = Theme.of(context);
         final isCompact = MediaQuery.sizeOf(context).width < 560;
-        final totalAberto = state.orcamentos.fold<double>(
-          0,
-          (total, orcamento) => total + orcamento.valorFinal,
-        );
+        final totalEmPropostas = state.totalEmPropostas;
 
         return Scaffold(
           appBar: AppBar(
@@ -248,7 +245,7 @@ class _HomePageState extends State<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _HeaderPanel(totalAberto: totalAberto),
+                          _HeaderPanel(totalAberto: totalEmPropostas),
                           const SizedBox(height: 20),
                           GridView.count(
                             crossAxisCount: useFourColumnCards ? 4 : 2,
@@ -322,7 +319,7 @@ class _HomePageState extends State<HomePage> {
                               _MetricPill(
                                 icon: Icons.payments_outlined,
                                 label: 'Total em propostas',
-                                value: formatMoney(totalAberto),
+                                value: formatMoney(totalEmPropostas),
                               ),
                             ],
                           ),
@@ -403,10 +400,15 @@ class _HomePageState extends State<HomePage> {
                                         Icons.description_outlined,
                                       ),
                                       title: Text(
-                                        'Orçamento #${(orcamento.id ?? '').substring(0, (orcamento.id ?? '').length.clamp(0, 6)).toUpperCase()}',
+                                        _tituloOrcamento(
+                                          cliente?.nome,
+                                          orcamento.dataCriacao,
+                                        ),
                                       ),
                                       subtitle: Text(
-                                        '${cliente?.nome ?? 'Cliente removido'} • ${formatDate(orcamento.dataCriacao)}',
+                                        '${cliente?.nome ?? 'Cliente removido'} • '
+                                        '${formatDate(orcamento.dataCriacao)} • '
+                                        'Ref. ${_idCurto(orcamento.id, 6)}',
                                       ),
                                       trailing: Text(
                                         formatMoney(orcamento.valorFinal),
@@ -628,4 +630,15 @@ class _MetricPill extends StatelessWidget {
       ),
     );
   }
+}
+
+String _idCurto(String? id, int tamanho) {
+  if (id == null || id.isEmpty) return '--';
+  final limite = id.length < tamanho ? id.length : tamanho;
+  return id.substring(0, limite).toUpperCase();
+}
+
+String _tituloOrcamento(String? clienteNome, DateTime dataCriacao) {
+  if (clienteNome != null) return 'Orçamento - $clienteNome';
+  return 'Orçamento de ${formatDate(dataCriacao)}';
 }

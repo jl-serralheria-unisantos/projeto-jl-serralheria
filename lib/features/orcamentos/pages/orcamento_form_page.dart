@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../app_state.dart';
 import '../../../shared/formatters.dart';
+import 'orcamento_detalhe_page.dart';
 
 class OrcamentoFormPage extends StatefulWidget {
-  const OrcamentoFormPage({super.key});
+  const OrcamentoFormPage({super.key, this.orcamentoId});
+
+  final String? orcamentoId;
 
   @override
   State<OrcamentoFormPage> createState() => _OrcamentoFormPageState();
@@ -23,7 +26,11 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
   final List<OrcamentoItem> _itens = [];
   int _tempItemId = -1;
   String? _clienteId;
+  bool _salvando = false;
+  bool _carregouOrcamentoInicial = false;
   late AppState _state;
+
+  bool get _editando => widget.orcamentoId != null;
 
   double get _subtotal {
     return _itens.fold<double>(0, (total, item) => total + item.subtotal);
@@ -40,6 +47,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _state = AppStateScope.of(context);
+    _preencherOrcamentoParaEdicao();
   }
 
   @override
@@ -53,102 +61,175 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
   @override
   Widget build(BuildContext context) {
     final state = _state;
-    if (_clienteId == null && state.clientes.isNotEmpty) {
-      _clienteId = state.clientes.first.id;
-    }
     return ListenableBuilder(
       listenable: state,
       builder: (context, _) {
-        if (_clienteId == null && state.clientes.isNotEmpty) {
-          _clienteId = state.clientes.first.id;
+        _preencherOrcamentoParaEdicao();
+        final orcamentoId = widget.orcamentoId;
+        if (orcamentoId != null && !_carregouOrcamentoInicial) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Editar orçamento')),
+            body: Center(
+              child: state.carregando
+                  ? const CircularProgressIndicator()
+                  : const Text('Orçamento não encontrado.'),
+            ),
+          );
         }
+
+        _sincronizarClienteSelecionado(state);
+        final temClienteValido = _clienteId != null;
         return Scaffold(
-      appBar: AppBar(title: const Text('Novo orçamento')),
-      body: SafeArea(
-        child: state.clientes.isEmpty
-            ? const _SemClientes()
-            : Form(
-                key: _formKey,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isWide = constraints.maxWidth >= 980;
-                    return SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1180),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Criação de orçamento',
-                                style: Theme.of(context).textTheme.headlineSmall
-                                    ?.copyWith(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Monte a proposta com cliente, múltiplos itens, desconto e observações.',
-                                style: Theme.of(context).textTheme.bodyLarge,
-                              ),
-                              const SizedBox(height: 16),
-                              if (isWide)
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(child: _buildDadosOrcamento()),
-                                    const SizedBox(width: 16),
-                                    SizedBox(
-                                      width: 340,
-                                      child: _buildResumoOrcamento(),
-                                    ),
-                                  ],
-                                )
-                              else
-                                Column(
-                                  children: [
-                                    _buildDadosOrcamento(),
-                                    const SizedBox(height: 16),
-                                    _buildResumoOrcamento(),
-                                  ],
-                                ),
-                              const SizedBox(height: 16),
-                              _ItensSection(
-                                itens: _itens,
-                                onAdd: () => _abrirItemDialog(context),
-                                onEdit: (item) =>
-                                    _abrirItemDialog(context, item),
-                                onDelete: (item) =>
-                                    setState(() => _itens.remove(item)),
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
+          appBar: AppBar(
+            title: Text(_editando ? 'Editar orçamento' : 'Novo orçamento'),
+          ),
+          body: SafeArea(
+            child: !temClienteValido
+                ? const _SemClientes()
+                : Form(
+                    key: _formKey,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isWide = constraints.maxWidth >= 980;
+                        return SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 1180),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  TextButton(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(),
-                                    child: const Text('Cancelar'),
+                                  Text(
+                                    _editando
+                                        ? 'Edição de orçamento'
+                                        : 'Criação de orçamento',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(fontWeight: FontWeight.w800),
                                   ),
-                                  const SizedBox(width: 8),
-                                  FilledButton.icon(
-                                    onPressed: () => _salvar(context),
-                                    icon: const Icon(Icons.save_outlined),
-                                    label: const Text('Salvar orçamento'),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _editando
+                                        ? 'Atualize cliente, itens, desconto e observações da proposta.'
+                                        : 'Monte a proposta com cliente, múltiplos itens, desconto e observações.',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyLarge,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  if (isWide)
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(child: _buildDadosOrcamento()),
+                                        const SizedBox(width: 16),
+                                        SizedBox(
+                                          width: 340,
+                                          child: _buildResumoOrcamento(),
+                                        ),
+                                      ],
+                                    )
+                                  else
+                                    Column(
+                                      children: [
+                                        _buildDadosOrcamento(),
+                                        const SizedBox(height: 16),
+                                        _buildResumoOrcamento(),
+                                      ],
+                                    ),
+                                  const SizedBox(height: 16),
+                                  _ItensSection(
+                                    itens: _itens,
+                                    onAdd: () => _abrirItemDialog(),
+                                    onEdit: _abrirItemDialog,
+                                    onDelete: (item) =>
+                                        setState(() => _itens.remove(item)),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.of(context).pop(),
+                                        child: const Text('Cancelar'),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      FilledButton.icon(
+                                        onPressed: _salvando
+                                            ? null
+                                            : () => _salvar(context),
+                                        icon: const Icon(Icons.save_outlined),
+                                        label: Text(
+                                          _salvando
+                                              ? 'Salvando...'
+                                              : _editando
+                                              ? 'Salvar alterações'
+                                              : 'Salvar orçamento',
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-      ),
-    );
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        );
       },
     );
+  }
+
+  void _preencherOrcamentoParaEdicao() {
+    final orcamentoId = widget.orcamentoId;
+    if (_carregouOrcamentoInicial || orcamentoId == null) return;
+
+    final orcamento = _state.orcamentoPorId(orcamentoId);
+    if (orcamento == null) return;
+
+    _clienteId = orcamento.clienteId;
+    _descontoController.text = decimalText(orcamento.desconto);
+    _validadeController.text = '${orcamento.validadeDias}';
+    _observacoesController.text = orcamento.observacoes;
+    _itens
+      ..clear()
+      ..addAll(
+        orcamento.itens.map((item) {
+          return OrcamentoItem(
+            id: _tempItemId--,
+            tipo: item.tipo,
+            origemId: item.origemId,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            unidade: item.unidade,
+            valorUnitario: item.valorUnitario,
+            observacoes: item.observacoes,
+          );
+        }),
+      );
+    _carregouOrcamentoInicial = true;
+  }
+
+  void _sincronizarClienteSelecionado(AppState state) {
+    final clienteSelecionadoExiste =
+        _clienteId != null &&
+        state.clientes.any((cliente) => cliente.id == _clienteId);
+    if (clienteSelecionadoExiste) return;
+
+    for (final cliente in state.clientes) {
+      if (cliente.id != null) {
+        _clienteId = cliente.id;
+        return;
+      }
+    }
+
+    _clienteId = null;
   }
 
   Widget _buildDadosOrcamento() {
@@ -172,311 +253,40 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     );
   }
 
-  Future<void> _abrirItemDialog(
-    BuildContext context, [
-    OrcamentoItem? item,
-  ]) async {
-    final state = _state;
-    var tipo = item?.tipo ?? 'produto';
-    String? origemId = item?.origemId;
-    final descricaoController = TextEditingController(
-      text: item?.descricao ?? '',
-    );
-    final quantidadeController = TextEditingController(
-      text: item == null ? '1' : decimalText(item.quantidade),
-    );
-    final unidadeController = TextEditingController(
-      text: item?.unidade ?? 'metro',
-    );
-    final valorController = TextEditingController(
-      text: item == null ? '' : decimalText(item.valorUnitario),
-    );
-    final observacoesController = TextEditingController(
-      text: item?.observacoes ?? '',
-    );
-
-    void aplicarProduto(String? id) {
-      final produto = id == null ? null : state.produtoPorId(id);
-      if (produto == null) return;
-      descricaoController.text = [
-        if (produto.codigo != null) produto.codigo,
-        produto.nome,
-      ].join(' - ');
-      unidadeController.text = produto.unidade;
-      valorController.text = decimalText(produto.valorBase);
-      observacoesController.text = produto.observacoes ?? '';
-    }
-
-    void aplicarServico(String? id) {
-      final servico = id == null ? null : state.servicoPorId(id);
-      if (servico == null) return;
-      descricaoController.text = servico.nome;
-      unidadeController.text = servico.unidade;
-      valorController.text = decimalText(servico.valorBase);
-      observacoesController.text = servico.observacoes ?? '';
-    }
-
-    void escolherPrimeiraOrigem() {
-      if (tipo == 'produto' && state.produtosAtivos.isNotEmpty) {
-        origemId = state.produtosAtivos.first.id;
-        aplicarProduto(origemId);
-      } else if (tipo == 'servico' && state.servicosAtivos.isNotEmpty) {
-        origemId = state.servicosAtivos.first.id;
-        aplicarServico(origemId);
-      } else {
-        origemId = null;
-        if (descricaoController.text.isEmpty) {
-          unidadeController.text = 'un';
-        }
-      }
-    }
-
-    if (item == null) {
-      escolherPrimeiraOrigem();
-    }
-
-    await showDialog<void>(
+  Future<void> _abrirItemDialog([OrcamentoItem? item]) async {
+    final itemAplicado = await showDialog<OrcamentoItem>(
       context: context,
-      builder: (dialogContext) {
-        final formKey = GlobalKey<FormState>();
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            final produtos = state.produtosAtivos;
-            final servicos = state.servicosAtivos;
-            return AlertDialog(
-              title: Text(item == null ? 'Adicionar item' : 'Editar item'),
-              content: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
-                child: Form(
-                  key: formKey,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        DropdownButtonFormField<String>(
-                          initialValue: tipo,
-                          decoration: const InputDecoration(
-                            labelText: 'Tipo de item',
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'produto',
-                              child: Text('Produto do catálogo'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'servico',
-                              child: Text('Serviço recorrente'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'manual',
-                              child: Text('Item manual'),
-                            ),
-                          ],
-                          onChanged: (value) {
-                            if (value == null) return;
-                            setDialogState(() {
-                              tipo = value;
-                              origemId = null;
-                              if (tipo == 'manual') {
-                                descricaoController.clear();
-                                unidadeController.text = 'un';
-                                valorController.clear();
-                                observacoesController.clear();
-                              } else {
-                                escolherPrimeiraOrigem();
-                              }
-                            });
-                          },
-                        ),
-                        if (tipo == 'produto') ...[
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            initialValue: origemId,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Produto',
-                            ),
-                            items: produtos.map((produto) {
-                              return DropdownMenuItem<String>(
-                                value: produto.id,
-                                child: Text(
-                                  '${produto.codigo ?? produto.nome} • ${produto.categoria}',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
-                            validator: (value) {
-                              if (value == null) return 'Selecione um produto.';
-                              return null;
-                            },
-                            onChanged: (value) {
-                              setDialogState(() {
-                                origemId = value;
-                                aplicarProduto(value);
-                              });
-                            },
-                          ),
-                        ],
-                        if (tipo == 'servico') ...[
-                          const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            initialValue: origemId,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Serviço',
-                            ),
-                            items: servicos.map((servico) {
-                              return DropdownMenuItem<String>(
-                                value: servico.id,
-                                child: Text(
-                                  servico.nome,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
-                            validator: (value) {
-                              if (value == null) return 'Selecione um serviço.';
-                              return null;
-                            },
-                            onChanged: (value) {
-                              setDialogState(() {
-                                origemId = value;
-                                aplicarServico(value);
-                              });
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: descricaoController,
-                          minLines: 2,
-                          maxLines: 4,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(
-                            labelText: 'Descrição do item',
-                          ),
-                          validator: (value) {
-                            if ((value ?? '').trim().isEmpty) {
-                              return 'Informe a descrição.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextFormField(
-                                controller: quantidadeController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                decoration: const InputDecoration(
-                                  labelText: 'Quantidade',
-                                ),
-                                validator: (value) {
-                                  if (parseDecimal(value ?? '') <= 0) {
-                                    return 'Quantidade inválida.';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextFormField(
-                                controller: unidadeController,
-                                decoration: const InputDecoration(
-                                  labelText: 'Unidade',
-                                ),
-                                validator: (value) {
-                                  if ((value ?? '').trim().isEmpty) {
-                                    return 'Informe a unidade.';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: TextFormField(
-                                controller: valorController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                decoration: const InputDecoration(
-                                  labelText: 'Valor unitário',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: observacoesController,
-                          minLines: 2,
-                          maxLines: 4,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(
-                            labelText: 'Observações do item',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton.icon(
-                  onPressed: () {
-                    if (!formKey.currentState!.validate()) return;
-                    final novo = OrcamentoItem(
-                      id: item?.id ?? _tempItemId--,
-                      tipo: tipo,
-                      origemId: origemId,
-                      descricao: descricaoController.text.trim(),
-                      quantidade: parseDecimal(quantidadeController.text),
-                      unidade: unidadeController.text.trim(),
-                      valorUnitario: parseDecimal(valorController.text),
-                      observacoes: observacoesController.text.trim(),
-                    );
-
-                    Navigator.of(dialogContext).pop();
-                    setState(() {
-                      final index = _itens.indexWhere(
-                        (element) => element.id == item?.id,
-                      );
-                      if (index >= 0) {
-                        _itens[index] = novo;
-                      } else {
-                        _itens.add(novo);
-                      }
-                    });
-                  },
-                  icon: const Icon(Icons.check),
-                  label: const Text('Aplicar'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (_) => _OrcamentoItemDialog(
+        state: _state,
+        item: item,
+        itemId: item?.id ?? _tempItemId,
+        tipoInicial: item?.tipo ?? _tipoInicialParaNovoItem(_state),
+      ),
     );
 
-    descricaoController.dispose();
-    quantidadeController.dispose();
-    unidadeController.dispose();
-    valorController.dispose();
-    observacoesController.dispose();
+    if (!mounted || itemAplicado == null) return;
+
+    setState(() {
+      if (item == null) {
+        _tempItemId--;
+      }
+      final index = _itens.indexWhere((element) => element.id == item?.id);
+      if (index >= 0) {
+        _itens[index] = itemAplicado;
+      } else {
+        _itens.add(itemAplicado);
+      }
+    });
   }
 
-  void _salvar(BuildContext context) {
+  String _tipoInicialParaNovoItem(AppState state) {
+    if (state.produtosAtivos.isNotEmpty) return 'produto';
+    if (state.servicosAtivos.isNotEmpty) return 'servico';
+    return 'manual';
+  }
+
+  Future<void> _salvar(BuildContext context) async {
+    if (_salvando) return;
     if (!_formKey.currentState!.validate()) return;
     if (_itens.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -488,20 +298,67 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     }
 
     final state = _state;
-    final clienteId = _clienteId!;
+    final clienteId = _clienteId;
+    if (clienteId == null || state.clientePorId(clienteId) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione um cliente válido.')),
+      );
+      return;
+    }
+
+    final temItemInvalido = _itens.any(
+      (item) => item.quantidade <= 0 || item.valorUnitario < 0,
+    );
+    if (temItemInvalido) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Revise os itens: quantidade deve ser maior que zero e valor unitário não pode ser negativo.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final itens = List<OrcamentoItem>.from(_itens);
     final desconto = _desconto;
     final validadeDias = int.tryParse(_validadeController.text.trim()) ?? 7;
     final observacoes = _observacoesController.text.trim();
 
-    Navigator.of(context).pop();
-    state.salvarOrcamento(
-      clienteId: clienteId,
-      itens: itens,
-      desconto: desconto,
-      validadeDias: validadeDias,
-      observacoes: observacoes,
-    );
+    setState(() => _salvando = true);
+
+    try {
+      final orcamentoId = widget.orcamentoId == null
+          ? await state.salvarOrcamento(
+              clienteId: clienteId,
+              itens: itens,
+              desconto: desconto,
+              validadeDias: validadeDias,
+              observacoes: observacoes,
+            )
+          : await state.atualizarOrcamento(
+              id: widget.orcamentoId!,
+              clienteId: clienteId,
+              itens: itens,
+              desconto: desconto,
+              validadeDias: validadeDias,
+              observacoes: observacoes,
+            );
+
+      if (!context.mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => OrcamentoDetalhePage(orcamentoId: orcamentoId),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      setState(() => _salvando = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao salvar orçamento: $e')));
+    }
   }
 }
 
@@ -540,6 +397,7 @@ class _DadosOrcamento extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             DropdownButtonFormField<String>(
+              key: ValueKey(clienteId),
               initialValue: clienteId,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Cliente'),
@@ -668,6 +526,346 @@ class _ResumoLinha extends StatelessWidget {
           Expanded(child: Text(label)),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
         ],
+      ),
+    );
+  }
+}
+
+class _OrcamentoItemDialog extends StatefulWidget {
+  const _OrcamentoItemDialog({
+    required this.state,
+    required this.itemId,
+    required this.tipoInicial,
+    this.item,
+  });
+
+  final AppState state;
+  final OrcamentoItem? item;
+  final int itemId;
+  final String tipoInicial;
+
+  @override
+  State<_OrcamentoItemDialog> createState() => _OrcamentoItemDialogState();
+}
+
+class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  late String _tipo;
+  String? _origemId;
+  late final TextEditingController _descricaoController;
+  late final TextEditingController _quantidadeController;
+  late final TextEditingController _unidadeController;
+  late final TextEditingController _valorController;
+  late final TextEditingController _observacoesController;
+
+  AppState get _state => widget.state;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final item = widget.item;
+    _tipo = widget.tipoInicial;
+    _origemId = item?.origemId;
+    _descricaoController = TextEditingController(text: item?.descricao ?? '');
+    _quantidadeController = TextEditingController(
+      text: item == null ? '1' : decimalText(item.quantidade),
+    );
+    _unidadeController = TextEditingController(text: item?.unidade ?? 'metro');
+    _valorController = TextEditingController(
+      text: item == null ? '' : decimalText(item.valorUnitario),
+    );
+    _observacoesController = TextEditingController(
+      text: item?.observacoes ?? '',
+    );
+
+    if (item == null) {
+      _escolherPrimeiraOrigem();
+    } else {
+      _limparOrigemInexistente();
+    }
+  }
+
+  @override
+  void dispose() {
+    _descricaoController.dispose();
+    _quantidadeController.dispose();
+    _unidadeController.dispose();
+    _valorController.dispose();
+    _observacoesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final produtos = _state.produtosAtivos;
+    final servicos = _state.servicosAtivos;
+
+    return AlertDialog(
+      title: Text(widget.item == null ? 'Adicionar item' : 'Editar item'),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 720),
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: _tipo,
+                  decoration: const InputDecoration(labelText: 'Tipo de item'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'produto',
+                      child: Text('Produto do catálogo'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'servico',
+                      child: Text('Serviço recorrente'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'manual',
+                      child: Text('Item manual'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _tipo = value;
+                      _origemId = null;
+                      if (_tipo == 'manual') {
+                        _descricaoController.clear();
+                        _unidadeController.text = 'un';
+                        _valorController.clear();
+                        _observacoesController.clear();
+                      } else {
+                        _escolherPrimeiraOrigem();
+                      }
+                    });
+                  },
+                ),
+                if (_tipo == 'produto') ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    key: const ValueKey('produto-orcamento'),
+                    initialValue: _origemId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Produto'),
+                    items: produtos.map((produto) {
+                      return DropdownMenuItem<String>(
+                        value: produto.id,
+                        child: Text(
+                          '${produto.codigo ?? produto.nome} • ${produto.categoria}',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    validator: (value) {
+                      if (value == null) {
+                        return 'Selecione um produto.';
+                      }
+                      return null;
+                    },
+                    onChanged: (value) {
+                      setState(() {
+                        _origemId = value;
+                        _aplicarProduto(value);
+                      });
+                    },
+                  ),
+                ],
+                if (_tipo == 'servico') ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    key: const ValueKey('servico-orcamento'),
+                    initialValue: _origemId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Serviço'),
+                    items: servicos.map((servico) {
+                      return DropdownMenuItem<String>(
+                        value: servico.id,
+                        child: Text(
+                          servico.nome,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      );
+                    }).toList(),
+                    validator: (value) {
+                      if (value == null) {
+                        return 'Selecione um serviço.';
+                      }
+                      return null;
+                    },
+                    onChanged: (value) {
+                      setState(() {
+                        _origemId = value;
+                        _aplicarServico(value);
+                      });
+                    },
+                  ),
+                ],
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _descricaoController,
+                  minLines: 2,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Descrição do item',
+                  ),
+                  validator: (value) {
+                    if ((value ?? '').trim().isEmpty) {
+                      return 'Informe a descrição.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _quantidadeController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Quantidade',
+                        ),
+                        validator: (value) {
+                          final quantidade = _parseDecimalOuNulo(value ?? '');
+                          if (quantidade == null || quantidade <= 0) {
+                            return 'Informe quantidade maior que zero.';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _unidadeController,
+                        decoration: const InputDecoration(labelText: 'Unidade'),
+                        validator: (value) {
+                          if ((value ?? '').trim().isEmpty) {
+                            return 'Informe a unidade.';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _valorController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Valor unitário',
+                        ),
+                        validator: (value) {
+                          final valor = _parseDecimalOuNulo(value ?? '');
+                          if (valor == null) {
+                            return 'Informe o valor.';
+                          }
+                          if (valor < 0) {
+                            return 'Informe valor maior ou igual a zero.';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _observacoesController,
+                  minLines: 2,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Observações do item',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton.icon(
+          onPressed: _aplicar,
+          icon: const Icon(Icons.check),
+          label: const Text('Aplicar'),
+        ),
+      ],
+    );
+  }
+
+  void _limparOrigemInexistente() {
+    if (_tipo == 'produto' &&
+        !_state.produtosAtivos.any((produto) => produto.id == _origemId)) {
+      _origemId = null;
+    } else if (_tipo == 'servico' &&
+        !_state.servicosAtivos.any((servico) => servico.id == _origemId)) {
+      _origemId = null;
+    }
+  }
+
+  void _escolherPrimeiraOrigem() {
+    if (_tipo == 'produto' && _state.produtosAtivos.isNotEmpty) {
+      _origemId = _state.produtosAtivos.first.id;
+      _aplicarProduto(_origemId);
+    } else if (_tipo == 'servico' && _state.servicosAtivos.isNotEmpty) {
+      _origemId = _state.servicosAtivos.first.id;
+      _aplicarServico(_origemId);
+    } else {
+      _origemId = null;
+      if (_descricaoController.text.isEmpty) {
+        _unidadeController.text = 'un';
+      }
+    }
+  }
+
+  void _aplicarProduto(String? id) {
+    final produto = id == null ? null : _state.produtoPorId(id);
+    if (produto == null) return;
+    _descricaoController.text = [
+      if (produto.codigo != null) produto.codigo,
+      produto.nome,
+    ].join(' - ');
+    _unidadeController.text = produto.unidade;
+    _valorController.text = decimalText(produto.valorBase);
+    _observacoesController.text = produto.observacoes ?? '';
+  }
+
+  void _aplicarServico(String? id) {
+    final servico = id == null ? null : _state.servicoPorId(id);
+    if (servico == null) return;
+    _descricaoController.text = servico.nome;
+    _unidadeController.text = servico.unidade;
+    _valorController.text = decimalText(servico.valorBase);
+    _observacoesController.text = servico.observacoes ?? '';
+  }
+
+  void _aplicar() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.of(context).pop(
+      OrcamentoItem(
+        id: widget.itemId,
+        tipo: _tipo,
+        origemId: _origemId,
+        descricao: _descricaoController.text.trim(),
+        quantidade: parseDecimal(_quantidadeController.text),
+        unidade: _unidadeController.text.trim(),
+        valorUnitario: parseDecimal(_valorController.text),
+        observacoes: _observacoesController.text.trim(),
       ),
     );
   }
@@ -834,4 +1032,15 @@ IconData _iconForTipo(String tipo) {
     'servico' => Icons.handyman_outlined,
     _ => Icons.edit_note_outlined,
   };
+}
+
+double? _parseDecimalOuNulo(String value) {
+  var normalized = value.trim().replaceAll(RegExp(r'[^0-9,.-]'), '');
+  if (normalized.isEmpty) return null;
+
+  if (normalized.contains(',')) {
+    normalized = normalized.replaceAll('.', '').replaceAll(',', '.');
+  }
+
+  return double.tryParse(normalized);
 }

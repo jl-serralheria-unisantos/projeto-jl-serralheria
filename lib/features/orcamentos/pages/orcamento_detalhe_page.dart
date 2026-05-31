@@ -4,6 +4,7 @@ import '../../../app_state.dart';
 import '../../../data/models/cliente_model.dart';
 import '../../../data/models/orcamento_model.dart';
 import '../../../shared/formatters.dart';
+import 'orcamento_form_page.dart';
 
 class OrcamentoDetalhePage extends StatefulWidget {
   const OrcamentoDetalhePage({super.key, required this.orcamentoId});
@@ -42,8 +43,15 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
 
         return Scaffold(
           appBar: AppBar(
-            title: Text('Orçamento #${orcamento.id?.substring(0, 6).toUpperCase() ?? '---'}'),
+            title: Text(_tituloOrcamento(cliente, orcamento)),
             actions: [
+              IconButton(
+                tooltip: 'Editar orçamento',
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: orcamento.id == null
+                    ? null
+                    : () => _editarOrcamento(context, orcamento.id!),
+              ),
               IconButton(
                 tooltip: 'Excluir orçamento',
                 icon: const Icon(Icons.delete_outline),
@@ -66,7 +74,9 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                           child: LayoutBuilder(
                             builder: (context, constraints) {
                               final isWide = constraints.maxWidth >= 760;
-                              final clienteBox = _ClienteResumo(cliente: cliente);
+                              final clienteBox = _ClienteResumo(
+                                cliente: cliente,
+                              );
                               final statusBox = _StatusResumo(
                                 orcamento: orcamento,
                                 state: _state,
@@ -117,7 +127,8 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           item.descricao,
@@ -129,7 +140,8 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                                         Text(
                                           '${decimalText(item.quantidade)} ${item.unidade} × ${formatMoney(item.valorUnitario)}',
                                         ),
-                                        if ((item.observacoes ?? '').isNotEmpty) ...[
+                                        if ((item.observacoes ?? '')
+                                            .isNotEmpty) ...[
                                           const SizedBox(height: 4),
                                           Text(
                                             item.observacoes!,
@@ -144,9 +156,8 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                                   const SizedBox(width: 12),
                                   Text(
                                     formatMoney(item.subtotal),
-                                    style: theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                    ),
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w900),
                                   ),
                                 ],
                               ),
@@ -174,17 +185,19 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                                   Expanded(
                                     child: Text(
                                       'Valor final',
-                                      style: theme.textTheme.titleLarge?.copyWith(
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                      style: theme.textTheme.titleLarge
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w800,
+                                          ),
                                     ),
                                   ),
                                   Text(
                                     formatMoney(orcamento.valorFinal),
-                                    style: theme.textTheme.headlineSmall?.copyWith(
-                                      color: const Color(0xFF2F6F63),
-                                      fontWeight: FontWeight.w900,
-                                    ),
+                                    style: theme.textTheme.headlineSmall
+                                        ?.copyWith(
+                                          color: const Color(0xFF2F6F63),
+                                          fontWeight: FontWeight.w900,
+                                        ),
                                   ),
                                 ],
                               ),
@@ -224,6 +237,14 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
     );
   }
 
+  void _editarOrcamento(BuildContext context, String orcamentoId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OrcamentoFormPage(orcamentoId: orcamentoId),
+      ),
+    );
+  }
+
   Future<void> _confirmarExclusao(BuildContext context, String? id) async {
     if (id == null) return;
     final state = _state;
@@ -248,9 +269,15 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
     );
 
     if (confirmado ?? false) {
-      state.excluirOrcamento(id);
-      if (context.mounted) {
+      try {
+        await state.excluirOrcamento(id);
+        if (!context.mounted) return;
         Navigator.of(context).pop();
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao excluir orçamento: $e')),
+        );
       }
     }
   }
@@ -319,9 +346,16 @@ class _StatusResumo extends StatelessWidget {
             DropdownMenuItem(value: 'aprovado', child: Text('Aprovado')),
             DropdownMenuItem(value: 'recusado', child: Text('Recusado')),
           ],
-          onChanged: (value) {
-            if (value != null) {
-              state.atualizarStatusOrcamento(orcamento.id!, value);
+          onChanged: (value) async {
+            final id = orcamento.id;
+            if (value == null || id == null) return;
+            try {
+              await state.atualizarStatusOrcamento(id, value);
+            } catch (e) {
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Erro ao atualizar status: $e')),
+              );
             }
           },
         ),
@@ -329,6 +363,11 @@ class _StatusResumo extends StatelessWidget {
         _InfoChip(
           icon: Icons.today_outlined,
           label: formatDate(orcamento.dataCriacao),
+        ),
+        const SizedBox(height: 8),
+        _InfoChip(
+          icon: Icons.tag_outlined,
+          label: 'Ref. ${_idCurto(orcamento.id, 6)}',
         ),
         const SizedBox(height: 8),
         _InfoChip(
@@ -389,4 +428,15 @@ IconData _iconForTipo(String tipo) {
     'servico' => Icons.handyman_outlined,
     _ => Icons.edit_note_outlined,
   };
+}
+
+String _idCurto(String? id, int tamanho) {
+  if (id == null || id.isEmpty) return '---';
+  final limite = id.length < tamanho ? id.length : tamanho;
+  return id.substring(0, limite).toUpperCase();
+}
+
+String _tituloOrcamento(Cliente? cliente, Orcamento orcamento) {
+  if (cliente != null) return 'Orçamento - ${cliente.nome}';
+  return 'Orçamento de ${formatDate(orcamento.dataCriacao)}';
 }
