@@ -4,6 +4,7 @@ import '../../../app_state.dart';
 import '../../../data/models/cliente_model.dart';
 import '../../../data/models/orcamento_model.dart';
 import '../../../shared/formatters.dart';
+import '../../pdf/services/pdf_service.dart';
 import 'orcamento_form_page.dart';
 
 class OrcamentoDetalhePage extends StatefulWidget {
@@ -16,6 +17,7 @@ class OrcamentoDetalhePage extends StatefulWidget {
 }
 
 class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
+  final _pdfService = const PdfService();
   late AppState _state;
 
   @override
@@ -80,6 +82,16 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                               final statusBox = _StatusResumo(
                                 orcamento: orcamento,
                                 state: _state,
+                                onVisualizarPdf: () => _visualizarPdf(
+                                  context,
+                                  orcamento,
+                                  cliente,
+                                ),
+                                onCompartilharPdf: () => _compartilharPdf(
+                                  context,
+                                  orcamento,
+                                  cliente,
+                                ),
                               );
                               if (isWide) {
                                 return Row(
@@ -245,6 +257,48 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
     );
   }
 
+  Future<void> _visualizarPdf(
+    BuildContext context,
+    Orcamento orcamento,
+    Cliente? cliente,
+  ) async {
+    await _executarAcaoPdf(
+      context,
+      () => _pdfService.visualizarOrcamento(
+        orcamento: orcamento,
+        cliente: cliente,
+      ),
+    );
+  }
+
+  Future<void> _compartilharPdf(
+    BuildContext context,
+    Orcamento orcamento,
+    Cliente? cliente,
+  ) async {
+    await _executarAcaoPdf(
+      context,
+      () => _pdfService.compartilharOrcamento(
+        orcamento: orcamento,
+        cliente: cliente,
+      ),
+    );
+  }
+
+  Future<void> _executarAcaoPdf(
+    BuildContext context,
+    Future<void> Function() acao,
+  ) async {
+    try {
+      await acao();
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao gerar PDF: $e')),
+      );
+    }
+  }
+
   Future<void> _confirmarExclusao(BuildContext context, String? id) async {
     if (id == null) return;
     final state = _state;
@@ -327,10 +381,17 @@ class _ClienteResumo extends StatelessWidget {
 }
 
 class _StatusResumo extends StatelessWidget {
-  const _StatusResumo({required this.orcamento, required this.state});
+  const _StatusResumo({
+    required this.orcamento,
+    required this.state,
+    required this.onVisualizarPdf,
+    required this.onCompartilharPdf,
+  });
 
   final Orcamento orcamento;
   final AppState state;
+  final VoidCallback onVisualizarPdf;
+  final VoidCallback onCompartilharPdf;
 
   @override
   Widget build(BuildContext context) {
@@ -373,6 +434,24 @@ class _StatusResumo extends StatelessWidget {
         _InfoChip(
           icon: Icons.event_available_outlined,
           label: 'Validade: ${orcamento.validadeDias} dias',
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            onPressed: onVisualizarPdf,
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: const Text('Visualizar PDF'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: onCompartilharPdf,
+            icon: const Icon(Icons.share_outlined),
+            label: const Text('Compartilhar PDF'),
+          ),
         ),
       ],
     );
