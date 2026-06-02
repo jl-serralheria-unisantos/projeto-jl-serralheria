@@ -1,13 +1,13 @@
 # Projeto JL Serralheria - Aplicativo Flutter
 
-Aplicativo desenvolvido em Flutter para gerenciamento de clientes, produtos, serviços e orçamentos de uma serralheria.
+Aplicativo mobile desenvolvido em Flutter para cadastro de clientes, produtos, serviços e geração de orçamentos para uma serralheria.
 
 ## Tecnologias utilizadas
 
 - Flutter
 - Dart
 - SQLite
-- Geração de PDF
+- PDF/Printing
 - Git/GitHub
 
 ## Funcionalidades
@@ -26,3 +26,7 @@ Clone o repositório:
 
 ```bash
 git clone https://github.com/jl-serralheria-unisantos/projeto-jl-serralheria.git
+cd projeto-jl-serralheria
+flutter pub get
+flutter run
+```
