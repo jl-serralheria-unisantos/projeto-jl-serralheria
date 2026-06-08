@@ -157,16 +157,6 @@ O Pull Request deve ser aberto para:
 feature/nome-da-tarefa -> develop
 ```
 
-## Divisão da equipe
-
-| Área | Responsabilidade |
-|---|---|
-| Integração/base | Revisar PRs, manter a develop estável e resolver conflitos |
-| Clientes | Cadastro, edição, listagem e exclusão de clientes |
-| Produtos e serviços | Cadastro, edição, listagem e exclusão de produtos e serviços |
-| Orçamentos | Criação, edição, listagem, detalhes e status dos orçamentos |
-| PDF/documentação | Geração de PDF, testes, prints, README e relatório |
-
 ## Critérios de teste manual
 
 Antes de considerar a entrega pronta, testar:
