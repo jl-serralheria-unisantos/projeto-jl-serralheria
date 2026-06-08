@@ -214,16 +214,6 @@ Para gerar APKs separados por arquitetura:
 ```bash
 flutter build apk --split-per-abi
 ```
-
-## Planejamento resumido
-
-| Semana | Foco | Entrega |
-|---|---|---|
-| Semana 1 | Estrutura inicial | Branches, estrutura base e telas principais |
-| Semana 2 | Cadastros | Clientes, produtos e serviços funcionando |
-| Semana 3 | Orçamentos | Criar, salvar, listar e detalhar orçamentos |
-| Semana 4 | Finalização | PDF, testes, documentação e apresentação |
-
 ## Status atual
 
 O projeto está na fase de integração final das funcionalidades principais:
