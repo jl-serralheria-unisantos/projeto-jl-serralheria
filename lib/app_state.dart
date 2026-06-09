@@ -306,7 +306,12 @@ class AppState extends ChangeNotifier {
     required int validadeDias,
     required String observacoes,
   }) async {
-    _validarDadosOrcamento(clienteId: clienteId, itens: itens);
+    _validarDadosOrcamento(
+      clienteId: clienteId,
+      itens: itens,
+      desconto: desconto,
+      validadeDias: validadeDias,
+    );
     final itensEmbutidos = _itensEmbutidos(itens);
 
     final subtotal = itensEmbutidos.fold<double>(0, (t, i) => t + i.subtotal);
@@ -348,7 +353,12 @@ class AppState extends ChangeNotifier {
     required int validadeDias,
     required String observacoes,
   }) async {
-    _validarDadosOrcamento(clienteId: clienteId, itens: itens);
+    _validarDadosOrcamento(
+      clienteId: clienteId,
+      itens: itens,
+      desconto: desconto,
+      validadeDias: validadeDias,
+    );
 
     final index = orcamentos.indexWhere((o) => o.id == id);
     if (index < 0) {
@@ -414,12 +424,20 @@ class AppState extends ChangeNotifier {
   void _validarDadosOrcamento({
     required String clienteId,
     required List<OrcamentoItem> itens,
+    required double desconto,
+    required int validadeDias,
   }) {
     if (clientePorId(clienteId) == null) {
       throw StateError('Cliente selecionado nao encontrado.');
     }
     if (itens.isEmpty) {
       throw StateError('Inclua pelo menos um item no orcamento.');
+    }
+    if (desconto < 0) {
+      throw StateError('Desconto nao pode ser negativo.');
+    }
+    if (validadeDias <= 0) {
+      throw StateError('Validade deve ser maior que zero.');
     }
     for (final item in itens) {
       if (item.quantidade <= 0) {

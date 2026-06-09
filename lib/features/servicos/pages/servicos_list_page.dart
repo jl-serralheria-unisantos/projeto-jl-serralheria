@@ -255,7 +255,8 @@ class _ServicosListPageState extends State<ServicosListPage> {
                                   labelText: 'Valor base',
                                 ),
                                 validator: (value) {
-                                  if (parseDecimal(value ?? '') < 0) {
+                                  final valor = parseDecimalOrNull(value ?? '');
+                                  if (valor == null || valor < 0) {
                                     return 'Informe um valor valido.';
                                   }
                                   return null;
@@ -295,11 +296,13 @@ class _ServicosListPageState extends State<ServicosListPage> {
                 FilledButton.icon(
                   onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
+                    final valorBase = parseDecimalOrNull(valorController.text);
+                    if (valorBase == null) return;
                     final novoServico = Servico(
                       id: servico?.id,
                       nome: nomeController.text.trim(),
                       unidade: unidadeController.text.trim(),
-                      valorBase: parseDecimal(valorController.text),
+                      valorBase: valorBase,
                       observacoes: observacoesController.text.trim(),
                       ativo: ativo,
                     );

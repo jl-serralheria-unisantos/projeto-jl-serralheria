@@ -280,7 +280,8 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
                             labelText: 'Valor base',
                           ),
                           validator: (value) {
-                            if (parseDecimal(value ?? '') < 0) {
+                            final valor = parseDecimalOrNull(value ?? '');
+                            if (valor == null || valor < 0) {
                               return 'Informe um valor válido.';
                             }
                             return null;
@@ -317,6 +318,8 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
                 FilledButton.icon(
                   onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
+                    final valorBase = parseDecimalOrNull(valorController.text);
+                    if (valorBase == null) return;
                     final novoProduto = Produto(
                       id: produto?.id,
                       nome: nomeController.text.trim(),
@@ -325,7 +328,7 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
                           : codigoController.text.trim(),
                       categoria: categoriaController.text.trim(),
                       unidade: unidadeController.text.trim(),
-                      valorBase: parseDecimal(valorController.text),
+                      valorBase: valorBase,
                       observacoes: observacoesController.text.trim(),
                       ativo: ativo,
                     );

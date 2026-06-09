@@ -36,7 +36,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     return _itens.fold<double>(0, (total, item) => total + item.subtotal);
   }
 
-  double get _desconto => parseDecimal(_descontoController.text);
+  double get _desconto => parseDecimalOrNull(_descontoController.text) ?? 0;
 
   double get _total {
     final total = _subtotal - _desconto;
@@ -321,7 +321,8 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     }
 
     final itens = List<OrcamentoItem>.from(_itens);
-    final desconto = _desconto;
+    final desconto = parseDecimalOrNull(_descontoController.text);
+    if (desconto == null || desconto < 0) return;
     final validadeDias = int.tryParse(_validadeController.text.trim()) ?? 7;
     final observacoes = _observacoesController.text.trim();
 
@@ -423,6 +424,13 @@ class _DadosOrcamento extends StatelessWidget {
                       decimal: true,
                     ),
                     decoration: const InputDecoration(labelText: 'Desconto'),
+                    validator: (value) {
+                      final desconto = parseDecimalOrNull(value ?? '');
+                      if (desconto == null || desconto < 0) {
+                        return 'Informe um desconto válido.';
+                      }
+                      return null;
+                    },
                     onChanged: (_) => onChanged(),
                   ),
                 ),
@@ -734,7 +742,7 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
                           labelText: 'Quantidade',
                         ),
                         validator: (value) {
-                          final quantidade = _parseDecimalOuNulo(value ?? '');
+                          final quantidade = parseDecimalOrNull(value ?? '');
                           if (quantidade == null || quantidade <= 0) {
                             return 'Informe quantidade maior que zero.';
                           }
@@ -766,7 +774,7 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
                           labelText: 'Valor unitário',
                         ),
                         validator: (value) {
-                          final valor = _parseDecimalOuNulo(value ?? '');
+                          final valor = parseDecimalOrNull(value ?? '');
                           if (valor == null) {
                             return 'Informe o valor.';
                           }
@@ -1032,15 +1040,4 @@ IconData _iconForTipo(String tipo) {
     'servico' => Icons.handyman_outlined,
     _ => Icons.edit_note_outlined,
   };
-}
-
-double? _parseDecimalOuNulo(String value) {
-  var normalized = value.trim().replaceAll(RegExp(r'[^0-9,.-]'), '');
-  if (normalized.isEmpty) return null;
-
-  if (normalized.contains(',')) {
-    normalized = normalized.replaceAll('.', '').replaceAll(',', '.');
-  }
-
-  return double.tryParse(normalized);
 }

@@ -25,13 +25,31 @@ class Cliente {
   }
 
   factory Cliente.fromFirestore(DocumentSnapshot doc) {
-    final map = doc.data() as Map<String, dynamic>;
+    final map = _documentData(doc);
     return Cliente(
       id: doc.id,
-      nome: map['nome'] as String,
-      telefone: map['telefone'] as String,
-      endereco: map['endereco'] as String?,
-      observacoes: map['observacoes'] as String?,
+      nome: _stringValue(map['nome'], fallback: 'Cliente sem nome'),
+      telefone: _stringValue(map['telefone']),
+      endereco: _optionalString(map['endereco']),
+      observacoes: _optionalString(map['observacoes']),
     );
   }
+}
+
+Map<String, dynamic> _documentData(DocumentSnapshot doc) {
+  final data = doc.data();
+  if (data is Map<String, dynamic>) return data;
+  if (data is Map) return Map<String, dynamic>.from(data);
+  return const {};
+}
+
+String _stringValue(Object? value, {String fallback = ''}) {
+  if (value == null) return fallback;
+  if (value is String) return value;
+  return value.toString();
+}
+
+String? _optionalString(Object? value) {
+  final text = _stringValue(value).trim();
+  return text.isEmpty ? null : text;
 }

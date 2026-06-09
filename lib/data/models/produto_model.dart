@@ -34,16 +34,59 @@ class Produto {
   }
 
   factory Produto.fromFirestore(DocumentSnapshot doc) {
-    final map = doc.data() as Map<String, dynamic>;
+    final map = _documentData(doc);
     return Produto(
       id: doc.id,
-      nome: map['nome'] as String,
-      codigo: map['codigo'] as String?,
-      categoria: map['categoria'] as String,
-      unidade: map['unidade'] as String,
-      valorBase: (map['valor_base'] as num).toDouble(),
-      observacoes: map['observacoes'] as String?,
-      ativo: map['ativo'] as bool? ?? true,
+      nome: _stringValue(map['nome'], fallback: 'Produto sem nome'),
+      codigo: _optionalString(map['codigo']),
+      categoria: _stringValue(map['categoria'], fallback: 'Avulso'),
+      unidade: _stringValue(map['unidade'], fallback: 'un'),
+      valorBase: _doubleValue(map['valor_base']),
+      observacoes: _optionalString(map['observacoes']),
+      ativo: _boolValue(map['ativo'], fallback: true),
     );
   }
+}
+
+Map<String, dynamic> _documentData(DocumentSnapshot doc) {
+  final data = doc.data();
+  if (data is Map<String, dynamic>) return data;
+  if (data is Map) return Map<String, dynamic>.from(data);
+  return const {};
+}
+
+String _stringValue(Object? value, {String fallback = ''}) {
+  if (value == null) return fallback;
+  if (value is String) return value;
+  return value.toString();
+}
+
+String? _optionalString(Object? value) {
+  final text = _stringValue(value).trim();
+  return text.isEmpty ? null : text;
+}
+
+double _doubleValue(Object? value, {double fallback = 0}) {
+  if (value is num) return value.toDouble();
+  if (value is String) {
+    return double.tryParse(value.trim().replaceAll(',', '.')) ?? fallback;
+  }
+  return fallback;
+}
+
+bool _boolValue(Object? value, {required bool fallback}) {
+  if (value is bool) return value;
+  if (value is String) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1' || normalized == 'sim') {
+      return true;
+    }
+    if (normalized == 'false' ||
+        normalized == '0' ||
+        normalized == 'nao' ||
+        normalized == 'não') {
+      return false;
+    }
+  }
+  return fallback;
 }
