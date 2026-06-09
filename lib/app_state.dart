@@ -20,14 +20,11 @@ class AppStateScope extends InheritedWidget {
   final AppState state;
 
   static AppState of(BuildContext context) {
-    final scope = context.dependOnInheritedWidgetOfExactType<AppStateScope>();
-    assert(scope != null, 'AppStateScope nao encontrado na arvore.');
-    return scope!.state;
+    return read(context);
   }
 
   static AppState read(BuildContext context) {
-    final scope =
-        context.findAncestorWidgetOfExactType<AppStateScope>();
+    final scope = context.findAncestorWidgetOfExactType<AppStateScope>();
     assert(scope != null, 'AppStateScope nao encontrado na arvore.');
     return scope!.state;
   }

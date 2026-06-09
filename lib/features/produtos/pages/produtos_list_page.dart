@@ -22,7 +22,7 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _state = AppStateScope.of(context);
+    _state = AppStateScope.read(context);
   }
 
   @override
@@ -318,6 +318,9 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
                 FilledButton.icon(
                   onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
+                    FocusScope.of(dialogContext).unfocus();
+                    final navigator = Navigator.of(dialogContext);
+                    final messenger = ScaffoldMessenger.of(dialogContext);
                     final valorBase = parseDecimalOrNull(valorController.text);
                     if (valorBase == null) return;
                     final novoProduto = Produto(
@@ -335,10 +338,10 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
                     try {
                       await state.salvarProduto(novoProduto);
                       if (!dialogContext.mounted) return;
-                      Navigator.of(dialogContext).pop();
+                      navigator.pop();
                     } catch (e) {
                       if (!dialogContext.mounted) return;
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      messenger.showSnackBar(
                         SnackBar(content: Text('Erro ao salvar produto: $e')),
                       );
                     }

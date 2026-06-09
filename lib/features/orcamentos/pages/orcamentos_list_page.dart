@@ -19,7 +19,7 @@ class _OrcamentosListPageState extends State<OrcamentosListPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _state = AppStateScope.of(context);
+    _state = AppStateScope.read(context);
   }
 
   @override

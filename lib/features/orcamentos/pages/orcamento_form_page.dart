@@ -46,7 +46,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _state = AppStateScope.of(context);
+    _state = AppStateScope.read(context);
     _preencherOrcamentoParaEdicao();
   }
 
@@ -288,6 +288,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
   Future<void> _salvar(BuildContext context) async {
     if (_salvando) return;
     if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     if (_itens.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -864,6 +865,7 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
 
   void _aplicar() {
     if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
     Navigator.of(context).pop(
       OrcamentoItem(
         id: widget.itemId,

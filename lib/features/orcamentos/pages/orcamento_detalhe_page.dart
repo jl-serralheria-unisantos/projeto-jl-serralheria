@@ -23,7 +23,7 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _state = AppStateScope.of(context);
+    _state = AppStateScope.read(context);
   }
 
   @override

@@ -19,7 +19,7 @@ class _ServicosListPageState extends State<ServicosListPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _state = AppStateScope.of(context);
+    _state = AppStateScope.read(context);
   }
 
   @override
@@ -296,6 +296,9 @@ class _ServicosListPageState extends State<ServicosListPage> {
                 FilledButton.icon(
                   onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
+                    FocusScope.of(dialogContext).unfocus();
+                    final navigator = Navigator.of(dialogContext);
+                    final messenger = ScaffoldMessenger.of(dialogContext);
                     final valorBase = parseDecimalOrNull(valorController.text);
                     if (valorBase == null) return;
                     final novoServico = Servico(
@@ -309,10 +312,10 @@ class _ServicosListPageState extends State<ServicosListPage> {
                     try {
                       await state.salvarServico(novoServico);
                       if (!dialogContext.mounted) return;
-                      Navigator.of(dialogContext).pop();
+                      navigator.pop();
                     } catch (e) {
                       if (!dialogContext.mounted) return;
-                      ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      messenger.showSnackBar(
                         SnackBar(content: Text('Erro ao salvar serviço: $e')),
                       );
                     }

@@ -176,7 +176,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _state = AppStateScope.of(context);
+    _state = AppStateScope.read(context);
   }
 
   void _abrirTela(BuildContext context, Widget page) {

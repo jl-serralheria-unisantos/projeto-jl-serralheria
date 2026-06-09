@@ -18,7 +18,7 @@ class _ClientesListPageState extends State<ClientesListPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _state = AppStateScope.of(context);
+    _state = AppStateScope.read(context);
   }
 
   @override
@@ -237,6 +237,9 @@ class _ClientesListPageState extends State<ClientesListPage> {
             FilledButton.icon(
               onPressed: () async {
                 if (!formKey.currentState!.validate()) return;
+                FocusScope.of(dialogContext).unfocus();
+                final navigator = Navigator.of(dialogContext);
+                final messenger = ScaffoldMessenger.of(dialogContext);
 
                 final novoCliente = Cliente(
                   id: cliente?.id,
@@ -249,13 +252,13 @@ class _ClientesListPageState extends State<ClientesListPage> {
                 try {
                   await state.salvarCliente(novoCliente);
 
-                  if (!context.mounted) return;
+                  if (!dialogContext.mounted) return;
 
-                  Navigator.of(dialogContext).pop();
+                  navigator.pop();
                 } catch (e) {
-                  if (!context.mounted) return;
+                  if (!dialogContext.mounted) return;
 
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     SnackBar(content: Text('Erro ao salvar cliente: $e')),
                   );
                 }
