@@ -301,28 +301,6 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 20),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: [
-                              _MetricPill(
-                                icon: Icons.picture_as_pdf_outlined,
-                                label: 'Catálogos usados',
-                                value: '2 PDFs',
-                              ),
-                              _MetricPill(
-                                icon: Icons.straighten_outlined,
-                                label: 'Linhas cadastradas',
-                                value: '${state.categoriasProdutos.length}',
-                              ),
-                              _MetricPill(
-                                icon: Icons.payments_outlined,
-                                label: 'Total em propostas',
-                                value: formatMoney(totalEmPropostas),
-                              ),
-                            ],
-                          ),
                           const SizedBox(height: 24),
                           Text(
                             'Linhas do catálogo',
@@ -586,47 +564,6 @@ class _HomeActionCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _MetricPill extends StatelessWidget {
-  const _MetricPill({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4DED4)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 20, color: const Color(0xFF2F6F63)),
-          const SizedBox(width: 8),
-          Text(label, style: theme.textTheme.bodyMedium),
-          const SizedBox(width: 10),
-          Text(
-            value,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
       ),
     );
   }
