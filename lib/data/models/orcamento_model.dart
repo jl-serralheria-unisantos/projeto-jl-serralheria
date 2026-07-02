@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../shared/formatters.dart';
+
 class Orcamento {
   final String? id;
   final String clienteId;
@@ -27,6 +29,10 @@ class Orcamento {
       itens.fold<double>(0, (total, item) => total + item.subtotal);
 
   double get valorFinal {
+    if (itens.isEmpty && valorTotal > 0) {
+      return valorTotal;
+    }
+
     final total = subtotal - desconto;
     return total < 0 ? 0 : total;
   }
@@ -168,7 +174,7 @@ DateTime _dateValue(Object? value) {
 double _doubleValue(Object? value, {double fallback = 0}) {
   if (value is num) return value.toDouble();
   if (value is String) {
-    return double.tryParse(value.trim().replaceAll(',', '.')) ?? fallback;
+    return parseDecimalOrNull(value) ?? fallback;
   }
   return fallback;
 }

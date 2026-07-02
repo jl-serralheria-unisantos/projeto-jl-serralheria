@@ -122,21 +122,29 @@ class _ClientesListPageState extends State<ClientesListPage> {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  trailing: Wrap(
-                                    spacing: 4,
-                                    children: [
-                                      IconButton(
-                                        tooltip: 'Editar cliente',
-                                        icon: const Icon(Icons.edit_outlined),
-                                        onPressed: () =>
-                                            _abrirFormulario(context, cliente),
+                                  trailing: PopupMenuButton<String>(
+                                    tooltip: 'Ações do cliente',
+                                    onSelected: (value) {
+                                      if (value == 'edit') {
+                                        _abrirFormulario(context, cliente);
+                                      }
+                                      if (value == 'delete') {
+                                        _confirmarExclusao(context, cliente);
+                                      }
+                                    },
+                                    itemBuilder: (context) => const [
+                                      PopupMenuItem(
+                                        value: 'edit',
+                                        child: ListTile(
+                                          leading: Icon(Icons.edit_outlined),
+                                          title: Text('Editar'),
+                                        ),
                                       ),
-                                      IconButton(
-                                        tooltip: 'Excluir cliente',
-                                        icon: const Icon(Icons.delete_outline),
-                                        onPressed: () => _confirmarExclusao(
-                                          context,
-                                          cliente,
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: ListTile(
+                                          leading: Icon(Icons.delete_outline),
+                                          title: Text('Excluir'),
                                         ),
                                       ),
                                     ],
@@ -171,102 +179,121 @@ class _ClientesListPageState extends State<ClientesListPage> {
     final observacoesController = TextEditingController(
       text: cliente?.observacoes ?? '',
     );
+    var salvando = false;
 
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(cliente == null ? 'Novo cliente' : 'Editar cliente'),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: Form(
-              key: formKey,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: nomeController,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(labelText: 'Nome'),
-                      validator: (value) {
-                        if ((value ?? '').trim().isEmpty) {
-                          return 'Informe o nome.';
-                        }
-                        return null;
-                      },
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(cliente == null ? 'Novo cliente' : 'Editar cliente'),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextFormField(
+                          controller: nomeController,
+                          textCapitalization: TextCapitalization.words,
+                          decoration: const InputDecoration(labelText: 'Nome'),
+                          validator: (value) {
+                            if ((value ?? '').trim().isEmpty) {
+                              return 'Informe o nome.';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: telefoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: const InputDecoration(
+                            labelText: 'Telefone',
+                          ),
+                          validator: (value) {
+                            if ((value ?? '').trim().isEmpty) {
+                              return 'Informe o telefone.';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: enderecoController,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: const InputDecoration(
+                            labelText: 'Endereço',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: observacoesController,
+                          minLines: 3,
+                          maxLines: 5,
+                          textCapitalization: TextCapitalization.sentences,
+                          decoration: const InputDecoration(
+                            labelText: 'Observações',
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: telefoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(labelText: 'Telefone'),
-                      validator: (value) {
-                        if ((value ?? '').trim().isEmpty) {
-                          return 'Informe o telefone.';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: enderecoController,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(labelText: 'Endereço'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: observacoesController,
-                      minLines: 3,
-                      maxLines: 5,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(
-                        labelText: 'Observações',
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton.icon(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                FocusScope.of(dialogContext).unfocus();
-                final navigator = Navigator.of(dialogContext);
-                final messenger = ScaffoldMessenger.of(dialogContext);
+              actions: [
+                TextButton(
+                  onPressed: salvando
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton.icon(
+                  onPressed: salvando
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          FocusScope.of(dialogContext).unfocus();
+                          final navigator = Navigator.of(dialogContext);
+                          final messenger = ScaffoldMessenger.of(
+                            dialogContext,
+                          );
 
-                final novoCliente = Cliente(
-                  id: cliente?.id,
-                  nome: nomeController.text.trim(),
-                  telefone: telefoneController.text.trim(),
-                  endereco: enderecoController.text.trim(),
-                  observacoes: observacoesController.text.trim(),
-                );
+                          final novoCliente = Cliente(
+                            id: cliente?.id,
+                            nome: nomeController.text.trim(),
+                            telefone: telefoneController.text.trim(),
+                            endereco: enderecoController.text.trim(),
+                            observacoes: observacoesController.text.trim(),
+                          );
 
-                try {
-                  await state.salvarCliente(novoCliente);
+                          setDialogState(() => salvando = true);
+                          try {
+                            await state.salvarCliente(novoCliente);
 
-                  if (!dialogContext.mounted) return;
+                            if (!dialogContext.mounted) return;
 
-                  navigator.pop();
-                } catch (e) {
-                  if (!dialogContext.mounted) return;
+                            navigator.pop();
+                          } catch (e) {
+                            if (!dialogContext.mounted) return;
+                            setDialogState(() => salvando = false);
 
-                  messenger.showSnackBar(
-                    SnackBar(content: Text('Erro ao salvar cliente: $e')),
-                  );
-                }
-              },
-              icon: const Icon(Icons.check),
-              label: const Text('Salvar'),
-            ),
-          ],
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Erro ao salvar cliente: $e'),
+                              ),
+                            );
+                          }
+                        },
+                  icon: const Icon(Icons.check),
+                  label: Text(salvando ? 'Salvando...' : 'Salvar'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

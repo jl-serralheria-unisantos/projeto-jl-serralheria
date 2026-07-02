@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../shared/formatters.dart';
+
 class Produto {
   final String? id;
   final String nome;
@@ -69,7 +71,7 @@ String? _optionalString(Object? value) {
 double _doubleValue(Object? value, {double fallback = 0}) {
   if (value is num) return value.toDouble();
   if (value is String) {
-    return double.tryParse(value.trim().replaceAll(',', '.')) ?? fallback;
+    return parseDecimalOrNull(value) ?? fallback;
   }
   return fallback;
 }

@@ -96,7 +96,7 @@ class _OrcamentosListPageState extends State<OrcamentosListPage> {
                             ),
                             _ResumoTile(
                               icon: Icons.payments_outlined,
-                              label: 'Valor total',
+                              label: 'Em propostas',
                               value: formatMoney(total),
                             ),
                             _ResumoTile(
@@ -190,7 +190,6 @@ class _OrcamentosListPageState extends State<OrcamentosListPage> {
   }
 
   Widget _buildOrcamentoCard(BuildContext context, Orcamento orcamento) {
-    final theme = Theme.of(context);
     final state = _state;
     final orcamentoId = orcamento.id;
     final cliente = state.clientePorId(orcamento.clienteId);
@@ -209,31 +208,31 @@ class _OrcamentosListPageState extends State<OrcamentosListPage> {
           '${cliente?.nome ?? 'Cliente removido'} • '
           '${formatDate(orcamento.dataCriacao)} • '
           '${orcamento.itens.length} itens • '
+          '${formatMoney(orcamento.valorFinal)} • '
           'Ref. ${_idCurto(orcamentoId, 6)}',
         ),
-        trailing: Wrap(
-          spacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              formatMoney(orcamento.valorFinal),
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w900,
+        trailing: PopupMenuButton<String>(
+          tooltip: 'Ações do orçamento',
+          enabled: orcamentoId != null,
+          onSelected: (value) {
+            if (orcamentoId == null) return;
+            if (value == 'open') _abrirDetalhe(context, orcamentoId);
+            if (value == 'edit') _abrirEdicao(context, orcamentoId);
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(
+              value: 'open',
+              child: ListTile(
+                leading: Icon(Icons.visibility_outlined),
+                title: Text('Abrir'),
               ),
             ),
-            IconButton(
-              tooltip: 'Editar orçamento',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: orcamentoId == null
-                  ? null
-                  : () => _abrirEdicao(context, orcamentoId),
-            ),
-            IconButton(
-              tooltip: 'Abrir orçamento',
-              icon: const Icon(Icons.chevron_right),
-              onPressed: orcamentoId == null
-                  ? null
-                  : () => _abrirDetalhe(context, orcamentoId),
+            PopupMenuItem(
+              value: 'edit',
+              child: ListTile(
+                leading: Icon(Icons.edit_outlined),
+                title: Text('Editar'),
+              ),
             ),
           ],
         ),

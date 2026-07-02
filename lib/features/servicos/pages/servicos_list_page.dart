@@ -111,6 +111,7 @@ class _ServicosListPageState extends State<ServicosListPage> {
                                   subtitle: Text(
                                     [
                                       servico.unidade,
+                                      formatMoney(servico.valorBase),
                                       if ((servico.observacoes ?? '')
                                           .isNotEmpty)
                                         servico.observacoes!,
@@ -118,53 +119,30 @@ class _ServicosListPageState extends State<ServicosListPage> {
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  trailing: Wrap(
-                                    spacing: 8,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    children: [
-                                      Text(
-                                        formatMoney(servico.valorBase),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w900,
-                                            ),
+                                  trailing: PopupMenuButton<String>(
+                                    tooltip: 'Ações do serviço',
+                                    onSelected: (value) {
+                                      if (value == 'edit') {
+                                        _abrirFormulario(context, servico);
+                                      }
+                                      if (value == 'delete') {
+                                        _confirmarExclusao(context, servico);
+                                      }
+                                    },
+                                    itemBuilder: (context) => const [
+                                      PopupMenuItem(
+                                        value: 'edit',
+                                        child: ListTile(
+                                          leading: Icon(Icons.edit_outlined),
+                                          title: Text('Editar'),
+                                        ),
                                       ),
-                                      PopupMenuButton<String>(
-                                        tooltip: 'Ações do serviço',
-                                        onSelected: (value) {
-                                          if (value == 'edit') {
-                                            _abrirFormulario(context, servico);
-                                          }
-                                          if (value == 'delete') {
-                                            _confirmarExclusao(
-                                              context,
-                                              servico,
-                                            );
-                                          }
-                                        },
-                                        itemBuilder: (context) => const [
-                                          PopupMenuItem(
-                                            value: 'edit',
-                                            child: ListTile(
-                                              leading: Icon(
-                                                Icons.edit_outlined,
-                                              ),
-                                              title: Text('Editar'),
-                                            ),
-                                          ),
-                                          PopupMenuItem(
-                                            value: 'delete',
-                                            child: ListTile(
-                                              leading: Icon(
-                                                Icons.delete_outline,
-                                              ),
-                                              title: Text('Excluir'),
-                                            ),
-                                          ),
-                                        ],
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: ListTile(
+                                          leading: Icon(Icons.delete_outline),
+                                          title: Text('Excluir'),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -198,6 +176,7 @@ class _ServicosListPageState extends State<ServicosListPage> {
       text: servico?.observacoes ?? '',
     );
     var ativo = servico?.ativo ?? true;
+    var salvando = false;
 
     await showDialog<void>(
       context: context,
@@ -290,38 +269,50 @@ class _ServicosListPageState extends State<ServicosListPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  onPressed: salvando
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
                   child: const Text('Cancelar'),
                 ),
                 FilledButton.icon(
-                  onPressed: () async {
-                    if (!formKey.currentState!.validate()) return;
-                    FocusScope.of(dialogContext).unfocus();
-                    final navigator = Navigator.of(dialogContext);
-                    final messenger = ScaffoldMessenger.of(dialogContext);
-                    final valorBase = parseDecimalOrNull(valorController.text);
-                    if (valorBase == null) return;
-                    final novoServico = Servico(
-                      id: servico?.id,
-                      nome: nomeController.text.trim(),
-                      unidade: unidadeController.text.trim(),
-                      valorBase: valorBase,
-                      observacoes: observacoesController.text.trim(),
-                      ativo: ativo,
-                    );
-                    try {
-                      await state.salvarServico(novoServico);
-                      if (!dialogContext.mounted) return;
-                      navigator.pop();
-                    } catch (e) {
-                      if (!dialogContext.mounted) return;
-                      messenger.showSnackBar(
-                        SnackBar(content: Text('Erro ao salvar serviço: $e')),
-                      );
-                    }
-                  },
+                  onPressed: salvando
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          FocusScope.of(dialogContext).unfocus();
+                          final navigator = Navigator.of(dialogContext);
+                          final messenger = ScaffoldMessenger.of(
+                            dialogContext,
+                          );
+                          final valorBase = parseDecimalOrNull(
+                            valorController.text,
+                          );
+                          if (valorBase == null) return;
+                          final novoServico = Servico(
+                            id: servico?.id,
+                            nome: nomeController.text.trim(),
+                            unidade: unidadeController.text.trim(),
+                            valorBase: valorBase,
+                            observacoes: observacoesController.text.trim(),
+                            ativo: ativo,
+                          );
+                          setDialogState(() => salvando = true);
+                          try {
+                            await state.salvarServico(novoServico);
+                            if (!dialogContext.mounted) return;
+                            navigator.pop();
+                          } catch (e) {
+                            if (!dialogContext.mounted) return;
+                            setDialogState(() => salvando = false);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Erro ao salvar serviço: $e'),
+                              ),
+                            );
+                          }
+                        },
                   icon: const Icon(Icons.check),
-                  label: const Text('Salvar'),
+                  label: Text(salvando ? 'Salvando...' : 'Salvar'),
                 ),
               ],
             );

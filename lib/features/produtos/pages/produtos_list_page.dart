@@ -187,6 +187,7 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
       text: produto?.observacoes ?? '',
     );
     var ativo = produto?.ativo ?? true;
+    var salvando = false;
 
     await showDialog<void>(
       context: context,
@@ -312,42 +313,54 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  onPressed: salvando
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
                   child: const Text('Cancelar'),
                 ),
                 FilledButton.icon(
-                  onPressed: () async {
-                    if (!formKey.currentState!.validate()) return;
-                    FocusScope.of(dialogContext).unfocus();
-                    final navigator = Navigator.of(dialogContext);
-                    final messenger = ScaffoldMessenger.of(dialogContext);
-                    final valorBase = parseDecimalOrNull(valorController.text);
-                    if (valorBase == null) return;
-                    final novoProduto = Produto(
-                      id: produto?.id,
-                      nome: nomeController.text.trim(),
-                      codigo: codigoController.text.trim().isEmpty
-                          ? null
-                          : codigoController.text.trim(),
-                      categoria: categoriaController.text.trim(),
-                      unidade: unidadeController.text.trim(),
-                      valorBase: valorBase,
-                      observacoes: observacoesController.text.trim(),
-                      ativo: ativo,
-                    );
-                    try {
-                      await state.salvarProduto(novoProduto);
-                      if (!dialogContext.mounted) return;
-                      navigator.pop();
-                    } catch (e) {
-                      if (!dialogContext.mounted) return;
-                      messenger.showSnackBar(
-                        SnackBar(content: Text('Erro ao salvar produto: $e')),
-                      );
-                    }
-                  },
+                  onPressed: salvando
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          FocusScope.of(dialogContext).unfocus();
+                          final navigator = Navigator.of(dialogContext);
+                          final messenger = ScaffoldMessenger.of(
+                            dialogContext,
+                          );
+                          final valorBase = parseDecimalOrNull(
+                            valorController.text,
+                          );
+                          if (valorBase == null) return;
+                          final novoProduto = Produto(
+                            id: produto?.id,
+                            nome: nomeController.text.trim(),
+                            codigo: codigoController.text.trim().isEmpty
+                                ? null
+                                : codigoController.text.trim(),
+                            categoria: categoriaController.text.trim(),
+                            unidade: unidadeController.text.trim(),
+                            valorBase: valorBase,
+                            observacoes: observacoesController.text.trim(),
+                            ativo: ativo,
+                          );
+                          setDialogState(() => salvando = true);
+                          try {
+                            await state.salvarProduto(novoProduto);
+                            if (!dialogContext.mounted) return;
+                            navigator.pop();
+                          } catch (e) {
+                            if (!dialogContext.mounted) return;
+                            setDialogState(() => salvando = false);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Erro ao salvar produto: $e'),
+                              ),
+                            );
+                          }
+                        },
                   icon: const Icon(Icons.check),
-                  label: const Text('Salvar'),
+                  label: Text(salvando ? 'Salvando...' : 'Salvar'),
                 ),
               ],
             );

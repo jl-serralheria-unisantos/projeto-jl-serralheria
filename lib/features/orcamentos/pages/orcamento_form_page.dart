@@ -78,13 +78,13 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
         }
 
         _sincronizarClienteSelecionado(state);
-        final temClienteValido = _clienteId != null;
+        final temClientes = state.clientes.any((cliente) => cliente.id != null);
         return Scaffold(
           appBar: AppBar(
             title: Text(_editando ? 'Editar orçamento' : 'Novo orçamento'),
           ),
           body: SafeArea(
-            child: !temClienteValido
+            child: !temClientes
                 ? const _SemClientes()
                 : Form(
                     key: _formKey,
@@ -221,6 +221,11 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
         _clienteId != null &&
         state.clientes.any((cliente) => cliente.id == _clienteId);
     if (clienteSelecionadoExiste) return;
+
+    if (_editando) {
+      _clienteId = null;
+      return;
+    }
 
     for (final cliente in state.clientes) {
       if (cliente.id != null) {
@@ -403,12 +408,15 @@ class _DadosOrcamento extends StatelessWidget {
               initialValue: clienteId,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Cliente'),
-              items: state.clientes.map((cliente) {
-                return DropdownMenuItem<String>(
-                  value: cliente.id,
-                  child: Text(cliente.nome, overflow: TextOverflow.ellipsis),
-                );
-              }).toList(),
+              items: state.clientes
+                  .where((cliente) => cliente.id != null)
+                  .map((cliente) {
+                    return DropdownMenuItem<String>(
+                      value: cliente.id!,
+                      child: Text(cliente.nome, overflow: TextOverflow.ellipsis),
+                    );
+                  })
+                  .toList(),
               validator: (value) {
                 if (value == null) return 'Selecione um cliente.';
                 return null;
