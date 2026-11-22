@@ -270,7 +270,7 @@ class _HomePageState extends State<HomePage> {
                                 icon: Icons.inventory_2_outlined,
                                 title: 'Produtos',
                                 value: '${state.produtos.length}',
-                                description: 'Perfis do catálogo PDF',
+                                description: 'Produtos cadastrados',
                                 color: const Color(0xFF6E5B32),
                                 onTap: () => _abrirTela(
                                   context,
@@ -450,7 +450,7 @@ class _HeaderPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Clientes, catálogo de perfis Alumax, serviços recorrentes e propostas em uma rotina única.',
+                  'Clientes, produtos, serviços e orçamentos em um só lugar.',
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: const Color(0xFFDCE8E3),
                   ),

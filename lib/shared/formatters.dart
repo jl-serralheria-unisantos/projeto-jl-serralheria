@@ -17,10 +17,6 @@ String decimalText(double value, {int fractionDigits = 2}) {
   return value.toStringAsFixed(fractionDigits).replaceAll('.', ',');
 }
 
-String formatWeight(double value) {
-  return '${decimalText(value, fractionDigits: 3)} kg/m';
-}
-
 double parseDecimal(String value) {
   return parseDecimalOrNull(value) ?? 0;
 }
