@@ -1,12 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../shared/formatters.dart';
+import 'campo_monetario.dart';
 
 class Servico {
   final String? id;
   final String nome;
   final String unidade;
-  final double valorBase;
+  final CampoMonetario _preco;
+  double get valorBase => _preco.valor;
   final String? observacoes;
   final bool ativo;
 
@@ -14,32 +15,31 @@ class Servico {
     this.id,
     required this.nome,
     required this.unidade,
-    required this.valorBase,
+    required double valorBase,
     this.observacoes,
     this.ativo = true,
-  });
+  }) : _preco = CampoMonetario.novo(valorBase);
 
   Map<String, dynamic> toFirestore() {
     return {
       'nome': nome,
       'unidade': unidade,
-      'valor_base': valorBase,
+      ..._preco.campo('valor_base'),
       'observacoes': observacoes,
       'ativo': ativo,
     };
   }
 
-  factory Servico.fromFirestore(DocumentSnapshot doc) {
-    final map = _documentData(doc);
-    return Servico(
-      id: doc.id,
-      nome: _stringValue(map['nome'], fallback: 'Serviço sem nome'),
-      unidade: _stringValue(map['unidade'], fallback: 'serviço'),
-      valorBase: _doubleValue(map['valor_base']),
-      observacoes: _optionalString(map['observacoes']),
-      ativo: _boolValue(map['ativo'], fallback: true),
-    );
-  }
+  factory Servico.fromFirestore(DocumentSnapshot doc) =>
+      Servico.fromMap(doc.id, _documentData(doc));
+
+  Servico.fromMap(String documentId, Map<String, dynamic> map)
+    : id = documentId,
+      nome = _stringValue(map['nome'], fallback: 'Serviço sem nome'),
+      unidade = _stringValue(map['unidade'], fallback: 'serviço'),
+      _preco = CampoMonetario.ler(map, 'valor_base'),
+      observacoes = _optionalString(map['observacoes']),
+      ativo = _boolValue(map['ativo'], fallback: true);
 }
 
 Map<String, dynamic> _documentData(DocumentSnapshot doc) {
@@ -58,14 +58,6 @@ String _stringValue(Object? value, {String fallback = ''}) {
 String? _optionalString(Object? value) {
   final text = _stringValue(value).trim();
   return text.isEmpty ? null : text;
-}
-
-double _doubleValue(Object? value, {double fallback = 0}) {
-  if (value is num) return value.toDouble();
-  if (value is String) {
-    return lerDecimalPersistido(value) ?? fallback;
-  }
-  return fallback;
 }
 
 bool _boolValue(Object? value, {required bool fallback}) {

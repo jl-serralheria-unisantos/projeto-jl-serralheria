@@ -16,7 +16,7 @@ class PdfService {
     required Cliente? cliente,
     PdfPageFormat format = PdfPageFormat.a4,
   }) async {
-    if (!orcamento.valorFinal.isFinite ||
+    if (orcamento.totalRegistradoCentavos == null ||
         (orcamento.itens.isNotEmpty && orcamento.requerRevisao)) {
       throw StateError(
         'Os valores históricos precisam de revisão. Confira e salve o orçamento antes de gerar o PDF.',
@@ -183,7 +183,7 @@ class PdfService {
             pw.Divider(color: PdfColors.grey500),
             _linhaTotal(
               'Total',
-              formatMoney(orcamento.valorFinal),
+              formatarCentavos(orcamento.totalRegistradoCentavos!),
               destacado: true,
             ),
           ],

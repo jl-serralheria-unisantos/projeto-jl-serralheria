@@ -9,6 +9,7 @@ import 'data/repositories/orcamento_repository.dart';
 import 'data/repositories/produto_repository.dart';
 import 'data/repositories/servico_repository.dart';
 import 'shared/calculo_orcamento.dart';
+import 'shared/formatters.dart';
 
 class AppStateScope extends InheritedWidget {
   const AppStateScope({super.key, required this.state, required super.child});
@@ -80,15 +81,37 @@ class OrcamentoItem {
   }
 }
 
+class ResumoPropostas {
+  const ResumoPropostas(this.centavos, this.conhecidos, this.invalidos);
+  final BigInt centavos;
+  final int conhecidos;
+  final List<Orcamento> invalidos;
+
+  String get rotulo => invalidos.isEmpty
+      ? 'Em propostas'
+      : 'Total parcial • a revisar: ${invalidos.length}';
+  String get valorFormatado => conhecidos == 0 && invalidos.isNotEmpty
+      ? 'Sem valor conhecido'
+      : formatarCentavos(centavos);
+}
+
 class AppState extends ChangeNotifier {
-  AppState() {
+  AppState({
+    ClienteRepository? clientesRepo,
+    ProdutoRepository? produtosRepo,
+    ServicoRepository? servicosRepo,
+    OrcamentoRepository? orcamentosRepo,
+  }) : _clienteRepo = clientesRepo ?? ClienteRepository(),
+       _produtoRepo = produtosRepo ?? ProdutoRepository(),
+       _servicoRepo = servicosRepo ?? ServicoRepository(),
+       _orcamentoRepo = orcamentosRepo ?? OrcamentoRepository() {
     carregarTudo();
   }
 
-  final _clienteRepo = ClienteRepository();
-  final _produtoRepo = ProdutoRepository();
-  final _servicoRepo = ServicoRepository();
-  final _orcamentoRepo = OrcamentoRepository();
+  final ClienteRepository _clienteRepo;
+  final ProdutoRepository _produtoRepo;
+  final ServicoRepository _servicoRepo;
+  final OrcamentoRepository _orcamentoRepo;
 
   final List<Cliente> clientes = [];
   final List<Produto> produtos = [];
@@ -102,10 +125,21 @@ class AppState extends ChangeNotifier {
   List<Orcamento> get orcamentosEmProposta =>
       orcamentos.where((o) => o.status != 'recusado').toList(growable: false);
 
-  double get totalEmPropostas => orcamentosEmProposta.fold<double>(
-    0,
-    (total, orcamento) => total + orcamento.valorFinal,
-  );
+  ResumoPropostas get resumoEmPropostas {
+    var soma = BigInt.zero;
+    var conhecidos = 0;
+    final invalidos = <Orcamento>[];
+    for (final proposta in orcamentosEmProposta) {
+      final centavos = proposta.totalRegistradoCentavos;
+      if (centavos == null) {
+        invalidos.add(proposta);
+      } else {
+        soma += centavos;
+        conhecidos++;
+      }
+    }
+    return ResumoPropostas(soma, conhecidos, List.unmodifiable(invalidos));
+  }
 
   List<Produto> get produtosAtivos =>
       produtos.where((p) => p.ativo).toList(growable: false);

@@ -32,6 +32,9 @@ class CalculoOrcamento {
       lerQuantidade(_texto(valor)) == valor;
   static String _texto(double valor) => valor.toString().replaceAll('.', ',');
 
+  static BigInt? centavosMonetarios(double valor) =>
+      valor.isFinite && valor >= 0 ? centavosLinha(1, valor) : null;
+
   static BigInt centavosLinha(double quantidade, double preco) {
     if (!quantidade.isFinite || !preco.isFinite) {
       throw ArgumentError('Quantidade e preço devem ser finitos.');

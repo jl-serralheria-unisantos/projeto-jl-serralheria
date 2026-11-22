@@ -11,6 +11,15 @@ String formatMoney(double value) {
   return value.isFinite ? _moneyFormat.format(value) : 'Valor inválido';
 }
 
+/// O acumulado pode ultrapassar a precisão inteira de double em um painel.
+String formatarCentavos(BigInt centavos) {
+  final digitos = centavos.toString().padLeft(3, '0');
+  final reais = digitos
+      .substring(0, digitos.length - 2)
+      .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => '.');
+  return 'R\$ $reais,${digitos.substring(digitos.length - 2)}';
+}
+
 String formatDate(DateTime value) {
   return DateFormat('dd/MM/yyyy').format(value);
 }

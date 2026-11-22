@@ -28,7 +28,7 @@ class _OrcamentosListPageState extends State<OrcamentosListPage> {
       listenable: _state,
       builder: (context, _) {
         final theme = Theme.of(context);
-        final total = _state.totalEmPropostas;
+        final resumo = _state.resumoEmPropostas;
         final state = _state;
         const statusTabs = [
           _StatusTab(
@@ -96,8 +96,8 @@ class _OrcamentosListPageState extends State<OrcamentosListPage> {
                             ),
                             _ResumoTile(
                               icon: Icons.payments_outlined,
-                              label: 'Em propostas',
-                              value: formatMoney(total),
+                              label: resumo.rotulo,
+                              value: resumo.valorFormatado,
                             ),
                             _ResumoTile(
                               icon: Icons.check_circle_outline,
@@ -208,7 +208,7 @@ class _OrcamentosListPageState extends State<OrcamentosListPage> {
           '${cliente?.nome ?? 'Cliente removido'} • '
           '${formatDate(orcamento.dataCriacao)} • '
           '${orcamento.itens.length} itens • '
-          '${formatMoney(orcamento.valorFinal)} • '
+          '${orcamento.totalRegistradoCentavos == null ? 'Total a revisar' : formatMoney(orcamento.valorFinal)} • '
           'Ref. ${_idCurto(orcamentoId, 6)}',
         ),
         trailing: PopupMenuButton<String>(

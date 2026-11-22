@@ -179,8 +179,10 @@ class _ServicosListPageState extends State<ServicosListPage> {
     var ativo = servico?.ativo ?? true;
     var salvando = false;
 
-    await showDialog<void>(
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final rota = DialogRoute<void>(
       context: context,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
       builder: (dialogContext) {
         final formKey = GlobalKey<FormState>();
         return StatefulBuilder(
@@ -231,8 +233,15 @@ class _ServicosListPageState extends State<ServicosListPage> {
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   labelText: 'Valor base',
+                                  helperText:
+                                      servico != null &&
+                                          !CalculoOrcamento.valorValido(
+                                            servico.valorBase,
+                                          )
+                                      ? 'Revise o preço histórico antes de salvar.'
+                                      : null,
                                 ),
                                 validator: (value) {
                                   final valor = parseDecimalOrNull(value ?? '');
@@ -320,6 +329,9 @@ class _ServicosListPageState extends State<ServicosListPage> {
       },
     );
 
+    await navigator.push(rota);
+    // Os campos ainda usam os controladores durante a animação de saída.
+    await rota.completed;
     nomeController.dispose();
     unidadeController.dispose();
     valorController.dispose();

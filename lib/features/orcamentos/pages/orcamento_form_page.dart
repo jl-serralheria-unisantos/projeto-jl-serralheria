@@ -343,8 +343,9 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     final anterior = widget.orcamentoId == null
         ? null
         : state.orcamentoPorId(widget.orcamentoId!);
-    if (anterior != null && anterior.requerRevisao) {
-      final novoTotal = CalculoOrcamento.total(_subtotalCentavos!, desconto);
+    final novoTotal = CalculoOrcamento.total(_subtotalCentavos!, desconto);
+    if (anterior != null &&
+        (anterior.requerRevisao || !anterior.mesmoTotal(novoTotal))) {
       final confirmar = await showDialog<bool>(
         context: context,
         builder: (dialog) => AlertDialog(
