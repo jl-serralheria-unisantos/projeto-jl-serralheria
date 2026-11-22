@@ -16,6 +16,12 @@ class PdfService {
     required Cliente? cliente,
     PdfPageFormat format = PdfPageFormat.a4,
   }) async {
+    if (orcamento.totalRegistradoCentavos == null ||
+        (orcamento.itens.isNotEmpty && orcamento.requerRevisao)) {
+      throw StateError(
+        'Os valores históricos precisam de revisão. Confira e salve o orçamento antes de gerar o PDF.',
+      );
+    }
     final document = pw.Document();
 
     document.addPage(
@@ -27,7 +33,7 @@ class PdfService {
           pw.SizedBox(height: 20),
           _dadosCliente(cliente),
           pw.SizedBox(height: 18),
-          _itens(orcamento),
+          if (orcamento.itens.isNotEmpty) _itens(orcamento),
           pw.SizedBox(height: 16),
           _totais(orcamento),
           pw.SizedBox(height: 18),
@@ -57,10 +63,7 @@ class PdfService {
     required Orcamento orcamento,
     required Cliente? cliente,
   }) async {
-    final bytes = await gerarOrcamento(
-      orcamento: orcamento,
-      cliente: cliente,
-    );
+    final bytes = await gerarOrcamento(orcamento: orcamento, cliente: cliente);
 
     await Printing.sharePdf(
       bytes: bytes,
@@ -79,16 +82,10 @@ class PdfService {
           children: [
             pw.Text(
               'JL Serralheria',
-              style: pw.TextStyle(
-                fontSize: 22,
-                fontWeight: pw.FontWeight.bold,
-              ),
+              style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 4),
-            pw.Text(
-              'Orçamento',
-              style: const pw.TextStyle(fontSize: 12),
-            ),
+            pw.Text('Orçamento', style: const pw.TextStyle(fontSize: 12)),
           ],
         ),
         pw.Column(
@@ -155,18 +152,21 @@ class PdfService {
         'Valor unit.',
         'Subtotal',
       ],
-      data: orcamento.itens.map((item) {
+      data: linhasDosItens(orcamento),
+    );
+  }
+
+  static List<List<String>> linhasDosItens(Orcamento orcamento) =>
+      orcamento.itens.map((item) {
         return [
           _tipoItem(item.tipo),
           item.descricao,
-          decimalText(item.quantidade),
+          quantidadeText(item.quantidade),
           item.unidade,
           formatMoney(item.valorUnitario),
           formatMoney(item.subtotal),
         ];
-      }).toList(),
-    );
-  }
+      }).toList();
 
   pw.Widget _totais(Orcamento orcamento) {
     return pw.Align(
@@ -175,12 +175,15 @@ class PdfService {
         width: 220,
         child: pw.Column(
           children: [
-            _linhaTotal('Subtotal', formatMoney(orcamento.subtotal)),
-            _linhaTotal('Desconto', formatMoney(orcamento.desconto)),
+            if (orcamento.itens.isNotEmpty) ...[
+              _linhaTotal('Subtotal', formatMoney(orcamento.subtotal)),
+              _linhaTotal('Desconto', formatMoney(orcamento.desconto)),
+            ] else
+              pw.Text('Registro histórico sem itens detalhados'),
             pw.Divider(color: PdfColors.grey500),
             _linhaTotal(
               'Total',
-              formatMoney(orcamento.valorFinal),
+              formatarCentavos(orcamento.totalRegistradoCentavos!),
               destacado: true,
             ),
           ],
@@ -230,11 +233,7 @@ class PdfService {
     );
   }
 
-  pw.Widget _linhaTotal(
-    String label,
-    String value, {
-    bool destacado = false,
-  }) {
+  pw.Widget _linhaTotal(String label, String value, {bool destacado = false}) {
     final style = pw.TextStyle(
       fontSize: destacado ? 14 : 11,
       fontWeight: destacado ? pw.FontWeight.bold : pw.FontWeight.normal,

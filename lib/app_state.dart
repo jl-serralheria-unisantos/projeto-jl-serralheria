@@ -8,13 +8,11 @@ import 'data/repositories/cliente_repository.dart';
 import 'data/repositories/orcamento_repository.dart';
 import 'data/repositories/produto_repository.dart';
 import 'data/repositories/servico_repository.dart';
+import 'shared/calculo_orcamento.dart';
+import 'shared/formatters.dart';
 
 class AppStateScope extends InheritedWidget {
-  const AppStateScope({
-    super.key,
-    required this.state,
-    required super.child,
-  });
+  const AppStateScope({super.key, required this.state, required super.child});
 
   final AppState state;
 
@@ -54,7 +52,11 @@ class OrcamentoItem {
   final double valorUnitario;
   final String? observacoes;
 
-  double get subtotal => quantidade * valorUnitario;
+  BigInt get subtotalCentavos =>
+      CalculoOrcamento.centavosLinha(quantidade, valorUnitario);
+  double get subtotal => quantidade.isFinite && valorUnitario.isFinite
+      ? CalculoOrcamento.reais(subtotalCentavos)
+      : double.nan;
 
   OrcamentoItem copyWith({
     int? id,
@@ -79,15 +81,37 @@ class OrcamentoItem {
   }
 }
 
+class ResumoPropostas {
+  const ResumoPropostas(this.centavos, this.conhecidos, this.invalidos);
+  final BigInt centavos;
+  final int conhecidos;
+  final List<Orcamento> invalidos;
+
+  String get rotulo => invalidos.isEmpty
+      ? 'Em propostas'
+      : 'Total parcial • a revisar: ${invalidos.length}';
+  String get valorFormatado => conhecidos == 0 && invalidos.isNotEmpty
+      ? 'Sem valor conhecido'
+      : formatarCentavos(centavos);
+}
+
 class AppState extends ChangeNotifier {
-  AppState() {
+  AppState({
+    ClienteRepository? clientesRepo,
+    ProdutoRepository? produtosRepo,
+    ServicoRepository? servicosRepo,
+    OrcamentoRepository? orcamentosRepo,
+  }) : _clienteRepo = clientesRepo ?? ClienteRepository(),
+       _produtoRepo = produtosRepo ?? ProdutoRepository(),
+       _servicoRepo = servicosRepo ?? ServicoRepository(),
+       _orcamentoRepo = orcamentosRepo ?? OrcamentoRepository() {
     carregarTudo();
   }
 
-  final _clienteRepo = ClienteRepository();
-  final _produtoRepo = ProdutoRepository();
-  final _servicoRepo = ServicoRepository();
-  final _orcamentoRepo = OrcamentoRepository();
+  final ClienteRepository _clienteRepo;
+  final ProdutoRepository _produtoRepo;
+  final ServicoRepository _servicoRepo;
+  final OrcamentoRepository _orcamentoRepo;
 
   final List<Cliente> clientes = [];
   final List<Produto> produtos = [];
@@ -101,10 +125,21 @@ class AppState extends ChangeNotifier {
   List<Orcamento> get orcamentosEmProposta =>
       orcamentos.where((o) => o.status != 'recusado').toList(growable: false);
 
-  double get totalEmPropostas => orcamentosEmProposta.fold<double>(
-        0,
-        (total, orcamento) => total + orcamento.valorFinal,
-      );
+  ResumoPropostas get resumoEmPropostas {
+    var soma = BigInt.zero;
+    var conhecidos = 0;
+    final invalidos = <Orcamento>[];
+    for (final proposta in orcamentosEmProposta) {
+      final centavos = proposta.totalRegistradoCentavos;
+      if (centavos == null) {
+        invalidos.add(proposta);
+      } else {
+        soma += centavos;
+        conhecidos++;
+      }
+    }
+    return ResumoPropostas(soma, conhecidos, List.unmodifiable(invalidos));
+  }
 
   List<Produto> get produtosAtivos =>
       produtos.where((p) => p.ativo).toList(growable: false);
@@ -221,6 +256,9 @@ class AppState extends ChangeNotifier {
   // ── Produtos ──────────────────────────────────────────────────────────────
 
   Future<String> salvarProduto(Produto produto) async {
+    if (!CalculoOrcamento.valorValido(produto.valorBase)) {
+      throw StateError(CalculoOrcamento.mensagemValor);
+    }
     if (produto.id == null) {
       final id = await _produtoRepo.inserir(produto);
       final novo = Produto(
@@ -257,6 +295,9 @@ class AppState extends ChangeNotifier {
   // ── Serviços ──────────────────────────────────────────────────────────────
 
   Future<String> salvarServico(Servico servico) async {
+    if (!CalculoOrcamento.valorValido(servico.valorBase)) {
+      throw StateError(CalculoOrcamento.mensagemValor);
+    }
     if (servico.id == null) {
       final id = await _servicoRepo.inserir(servico);
       final novo = Servico(
@@ -300,13 +341,14 @@ class AppState extends ChangeNotifier {
     _validarDadosOrcamento(
       clienteId: clienteId,
       itens: itens,
-      desconto: desconto,
       validadeDias: validadeDias,
     );
     final itensEmbutidos = _itensEmbutidos(itens);
 
-    final subtotal = itensEmbutidos.fold<double>(0, (t, i) => t + i.subtotal);
-    final valorFinal = (subtotal - desconto) < 0 ? 0.0 : subtotal - desconto;
+    final valorFinal = CalculoOrcamento.total(
+      CalculoOrcamento.somar(itensEmbutidos.map((i) => i.subtotalCentavos)),
+      desconto,
+    );
 
     final orcamento = Orcamento(
       clienteId: clienteId,
@@ -347,7 +389,6 @@ class AppState extends ChangeNotifier {
     _validarDadosOrcamento(
       clienteId: clienteId,
       itens: itens,
-      desconto: desconto,
       validadeDias: validadeDias,
     );
 
@@ -357,8 +398,10 @@ class AppState extends ChangeNotifier {
     }
 
     final itensEmbutidos = _itensEmbutidos(itens);
-    final subtotal = itensEmbutidos.fold<double>(0, (t, i) => t + i.subtotal);
-    final valorFinal = (subtotal - desconto) < 0 ? 0.0 : subtotal - desconto;
+    final valorFinal = CalculoOrcamento.total(
+      CalculoOrcamento.somar(itensEmbutidos.map((i) => i.subtotalCentavos)),
+      desconto,
+    );
 
     final atualizado = orcamentos[index].copyWith(
       clienteId: clienteId,
@@ -415,7 +458,6 @@ class AppState extends ChangeNotifier {
   void _validarDadosOrcamento({
     required String clienteId,
     required List<OrcamentoItem> itens,
-    required double desconto,
     required int validadeDias,
   }) {
     if (clientePorId(clienteId) == null) {
@@ -424,18 +466,15 @@ class AppState extends ChangeNotifier {
     if (itens.isEmpty) {
       throw StateError('Inclua pelo menos um item no orcamento.');
     }
-    if (desconto < 0) {
-      throw StateError('Desconto nao pode ser negativo.');
-    }
     if (validadeDias <= 0) {
       throw StateError('Validade deve ser maior que zero.');
     }
     for (final item in itens) {
-      if (item.quantidade <= 0) {
-        throw StateError('Quantidade do item deve ser maior que zero.');
+      if (!CalculoOrcamento.quantidadeValida(item.quantidade)) {
+        throw StateError(CalculoOrcamento.mensagemQuantidade);
       }
-      if (item.valorUnitario < 0) {
-        throw StateError('Valor unitario do item nao pode ser negativo.');
+      if (!CalculoOrcamento.valorValido(item.valorUnitario)) {
+        throw StateError(CalculoOrcamento.mensagemValor);
       }
     }
   }

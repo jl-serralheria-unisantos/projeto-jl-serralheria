@@ -213,3 +213,19 @@ O projeto está na fase de integração final das funcionalidades principais:
 - PDF integrado ao detalhe do orçamento
 - Documentação em atualização
 - Testes manuais pendentes para validação final
+
+## Cálculo dos orçamentos
+
+Cada linha multiplica a quantidade pelo preço unitário em representação decimal exata e arredonda uma vez para centavos. Meio centavo arredonda para cima. O subtotal soma os centavos das linhas. O desconto pode ir de zero até o subtotal, inclusive. Por exemplo, 200 linhas de 0,125 m a R$ 1,00/m somam R$ 26,00. Uma única linha de 25 m ao mesmo preço soma R$ 25,00.
+
+O editor aceita até nove dígitos inteiros, duas casas para dinheiro e seis para quantidades positivas de qualquer unidade, inclusive metro, área e hora. A unidade é texto livre no cadastro. A vírgula separa decimais. O agrupamento de milhares exige uma parte decimal explícita, como em `1.234,56`. Para mil unidades inteiras, digite `1000`. O subtotal máximo por orçamento é R$ 999.999.999,99.
+
+O Firestore mantém os campos numéricos existentes. A consulta usa o total gravado. Na falta dele, o leitor conserva o cálculo histórico. Se as linhas e o desconto não conciliam com o total gravado, o aplicativo solicita revisão antes de emitir um novo PDF e confirmação ao salvar a edição. Para registros sem itens, o PDF identifica o histórico e apresenta o total registrado. Atualizações de status continuam independentes. A adoção dessa regra dispensa migração em lote.
+
+### Registros financeiros históricos
+
+A leitura de preços de produtos e serviços aceita números e valores históricos como `R$ 125,50`. Zero é um preço válido. Um campo ausente ou ilegível fica pendente de revisão e o editor exige um preço válido antes de salvar. Uma string monetária sem símbolo e com separador ambíguo, como `0.125`, também exige revisão. Essa compatibilidade é exclusiva da leitura dos documentos.
+
+O orçamento compara os totais em centavos. Por exemplo, um total gravado como `0.30000000000000004` equivale a R$ 0,30 para emissão e edição. Uma alteração de observações conserva o total bruto equivalente. Quando uma edição muda o total em centavos, ou quando o orçamento já exige revisão, o editor apresenta os dois valores antes da gravação. Cancelar mantém o documento original.
+
+O painel e a lista somam os valores conhecidos das propostas não recusadas e indicam quantos registros têm total a revisar. Um total ausente só pode ser reconstruído se houver itens com valores para o cálculo histórico. Um total explicitamente ilegível permanece pendente, mesmo quando há itens.

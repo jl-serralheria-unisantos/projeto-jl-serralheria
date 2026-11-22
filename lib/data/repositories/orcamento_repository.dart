@@ -15,7 +15,9 @@ class OrcamentoRepository {
     if (id == null) {
       throw ArgumentError('Orcamento sem id nao pode ser atualizado.');
     }
-    await _col.doc(id).update(orcamento.toFirestore());
+    await _col
+        .doc(id)
+        .update(orcamento.toFirestore(preservarTotalOriginal: true));
   }
 
   Future<List<Orcamento>> listarTodos() async {

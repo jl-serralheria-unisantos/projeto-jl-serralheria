@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app_state.dart';
+import '../../../shared/calculo_orcamento.dart';
 import '../../../shared/formatters.dart';
 import 'orcamento_detalhe_page.dart';
 
@@ -32,16 +33,11 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
 
   bool get _editando => widget.orcamentoId != null;
 
-  double get _subtotal {
-    return _itens.fold<double>(0, (total, item) => total + item.subtotal);
-  }
-
-  double get _desconto => parseDecimalOrNull(_descontoController.text) ?? 0;
-
-  double get _total {
-    final total = _subtotal - _desconto;
-    return total < 0 ? 0 : total;
-  }
+  BigInt? get _subtotalCentavos =>
+      _itens.any((i) => !i.quantidade.isFinite || !i.valorUnitario.isFinite)
+      ? null
+      : CalculoOrcamento.somar(_itens.map((i) => i.subtotalCentavos));
+  double? get _desconto => parseDecimalOrNull(_descontoController.text);
 
   @override
   void didChangeDependencies() {
@@ -242,6 +238,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
       state: _state,
       clienteId: _clienteId,
       onClienteChanged: (value) => setState(() => _clienteId = value),
+      subtotalCentavos: _subtotalCentavos,
       descontoController: _descontoController,
       validadeController: _validadeController,
       observacoesController: _observacoesController,
@@ -250,10 +247,19 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
   }
 
   Widget _buildResumoOrcamento() {
+    final subtotal = _subtotalCentavos;
+    final desconto = _desconto;
     return _ResumoOrcamento(
-      subtotal: _subtotal,
-      desconto: _desconto,
-      total: _total,
+      subtotal: subtotal == null
+          ? double.nan
+          : CalculoOrcamento.reais(subtotal),
+      desconto: desconto,
+      total:
+          subtotal != null &&
+              desconto != null &&
+              CalculoOrcamento.erroDesconto(subtotal, desconto) == null
+          ? CalculoOrcamento.total(subtotal, desconto)
+          : null,
       itens: _itens.length,
     );
   }
@@ -313,13 +319,15 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     }
 
     final temItemInvalido = _itens.any(
-      (item) => item.quantidade <= 0 || item.valorUnitario < 0,
+      (item) =>
+          !CalculoOrcamento.quantidadeValida(item.quantidade) ||
+          !CalculoOrcamento.valorValido(item.valorUnitario),
     );
     if (temItemInvalido) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Revise os itens: quantidade deve ser maior que zero e valor unitário não pode ser negativo.',
+            'Revise as quantidades e os preços dos itens antes de salvar.',
           ),
         ),
       );
@@ -328,10 +336,37 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
 
     final itens = List<OrcamentoItem>.from(_itens);
     final desconto = parseDecimalOrNull(_descontoController.text);
-    if (desconto == null || desconto < 0) return;
+    if (desconto == null) return;
     final validadeDias = int.tryParse(_validadeController.text.trim()) ?? 7;
     final observacoes = _observacoesController.text.trim();
 
+    final anterior = widget.orcamentoId == null
+        ? null
+        : state.orcamentoPorId(widget.orcamentoId!);
+    final novoTotal = CalculoOrcamento.total(_subtotalCentavos!, desconto);
+    if (anterior != null &&
+        (anterior.requerRevisao || !anterior.mesmoTotal(novoTotal))) {
+      final confirmar = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('Atualizar orçamento histórico?'),
+          content: Text(
+            'Total registrado: ${formatMoney(anterior.valorFinal)}. Total após salvar: ${formatMoney(novoTotal)}.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialog, false),
+              child: const Text('Voltar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialog, true),
+              child: const Text('Confirmar'),
+            ),
+          ],
+        ),
+      );
+      if (!context.mounted || confirmar != true) return;
+    }
     setState(() => _salvando = true);
 
     try {
@@ -374,6 +409,7 @@ class _DadosOrcamento extends StatelessWidget {
     required this.state,
     required this.clienteId,
     required this.onClienteChanged,
+    required this.subtotalCentavos,
     required this.descontoController,
     required this.validadeController,
     required this.observacoesController,
@@ -383,6 +419,7 @@ class _DadosOrcamento extends StatelessWidget {
   final AppState state;
   final String? clienteId;
   final ValueChanged<String?> onClienteChanged;
+  final BigInt? subtotalCentavos;
   final TextEditingController descontoController;
   final TextEditingController validadeController;
   final TextEditingController observacoesController;
@@ -408,15 +445,14 @@ class _DadosOrcamento extends StatelessWidget {
               initialValue: clienteId,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Cliente'),
-              items: state.clientes
-                  .where((cliente) => cliente.id != null)
-                  .map((cliente) {
-                    return DropdownMenuItem<String>(
-                      value: cliente.id!,
-                      child: Text(cliente.nome, overflow: TextOverflow.ellipsis),
-                    );
-                  })
-                  .toList(),
+              items: state.clientes.where((cliente) => cliente.id != null).map((
+                cliente,
+              ) {
+                return DropdownMenuItem<String>(
+                  value: cliente.id!,
+                  child: Text(cliente.nome, overflow: TextOverflow.ellipsis),
+                );
+              }).toList(),
               validator: (value) {
                 if (value == null) return 'Selecione um cliente.';
                 return null;
@@ -435,10 +471,13 @@ class _DadosOrcamento extends StatelessWidget {
                     decoration: const InputDecoration(labelText: 'Desconto'),
                     validator: (value) {
                       final desconto = parseDecimalOrNull(value ?? '');
-                      if (desconto == null || desconto < 0) {
-                        return 'Informe um desconto válido.';
+                      if (subtotalCentavos == null) {
+                        return 'Revise os itens inválidos.';
                       }
-                      return null;
+                      return CalculoOrcamento.erroDesconto(
+                        subtotalCentavos!,
+                        desconto,
+                      );
                     },
                     onChanged: (_) => onChanged(),
                   ),
@@ -488,8 +527,8 @@ class _ResumoOrcamento extends StatelessWidget {
   });
 
   final double subtotal;
-  final double desconto;
-  final double total;
+  final double? desconto;
+  final double? total;
   final int itens;
 
   @override
@@ -511,11 +550,14 @@ class _ResumoOrcamento extends StatelessWidget {
             const SizedBox(height: 14),
             _ResumoLinha(label: 'Itens', value: '$itens'),
             _ResumoLinha(label: 'Subtotal', value: formatMoney(subtotal)),
-            _ResumoLinha(label: 'Desconto', value: formatMoney(desconto)),
+            _ResumoLinha(
+              label: 'Desconto',
+              value: desconto == null ? '—' : formatMoney(desconto!),
+            ),
             const Divider(height: 24),
             Text('Valor final', style: theme.textTheme.labelLarge),
             Text(
-              formatMoney(total),
+              total == null ? 'Revise os valores' : formatMoney(total!),
               style: theme.textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.w900,
                 color: const Color(0xFF2F6F63),
@@ -587,7 +629,7 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
     _origemId = item?.origemId;
     _descricaoController = TextEditingController(text: item?.descricao ?? '');
     _quantidadeController = TextEditingController(
-      text: item == null ? '1' : decimalText(item.quantidade),
+      text: item == null ? '1' : quantidadeText(item.quantidade),
     );
     _unidadeController = TextEditingController(text: item?.unidade ?? 'metro');
     _valorController = TextEditingController(
@@ -751,9 +793,11 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
                           labelText: 'Quantidade',
                         ),
                         validator: (value) {
-                          final quantidade = parseDecimalOrNull(value ?? '');
+                          final quantidade = CalculoOrcamento.lerQuantidade(
+                            value ?? '',
+                          );
                           if (quantidade == null || quantidade <= 0) {
-                            return 'Informe quantidade maior que zero.';
+                            return CalculoOrcamento.mensagemQuantidade;
                           }
                           return null;
                         },
@@ -785,7 +829,7 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
                         validator: (value) {
                           final valor = parseDecimalOrNull(value ?? '');
                           if (valor == null) {
-                            return 'Informe o valor.';
+                            return CalculoOrcamento.mensagemValor;
                           }
                           if (valor < 0) {
                             return 'Informe valor maior ou igual a zero.';
@@ -880,9 +924,9 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
         tipo: _tipo,
         origemId: _origemId,
         descricao: _descricaoController.text.trim(),
-        quantidade: parseDecimal(_quantidadeController.text),
+        quantidade: CalculoOrcamento.lerQuantidade(_quantidadeController.text)!,
         unidade: _unidadeController.text.trim(),
-        valorUnitario: parseDecimal(_valorController.text),
+        valorUnitario: parseDecimalOrNull(_valorController.text)!,
         observacoes: _observacoesController.text.trim(),
       ),
     );
@@ -983,7 +1027,7 @@ class _ItensSection extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '${decimalText(item.quantidade)} ${item.unidade} × ${formatMoney(item.valorUnitario)}',
+                                  '${quantidadeText(item.quantidade)} ${item.unidade} × ${formatMoney(item.valorUnitario)}',
                                 ),
                               ],
                             ),

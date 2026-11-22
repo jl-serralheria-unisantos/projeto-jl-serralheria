@@ -191,7 +191,7 @@ class _HomePageState extends State<HomePage> {
         final state = _state;
         final theme = Theme.of(context);
         final isCompact = MediaQuery.sizeOf(context).width < 560;
-        final totalEmPropostas = state.totalEmPropostas;
+        final resumo = state.resumoEmPropostas;
 
         return Scaffold(
           appBar: AppBar(
@@ -245,7 +245,7 @@ class _HomePageState extends State<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _HeaderPanel(totalAberto: totalEmPropostas),
+                          _HeaderPanel(resumo: resumo),
                           const SizedBox(height: 20),
                           GridView.count(
                             crossAxisCount: useFourColumnCards ? 4 : 2,
@@ -415,9 +415,9 @@ class _HomePageState extends State<HomePage> {
 }
 
 class _HeaderPanel extends StatelessWidget {
-  const _HeaderPanel({required this.totalAberto});
+  const _HeaderPanel({required this.resumo});
 
-  final double totalAberto;
+  final ResumoPropostas resumo;
 
   @override
   Widget build(BuildContext context) {
@@ -468,13 +468,13 @@ class _HeaderPanel extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Em propostas',
+                  resumo.rotulo,
                   style: theme.textTheme.labelLarge?.copyWith(
                     color: const Color(0xFF5B3C1C),
                   ),
                 ),
                 Text(
-                  formatMoney(totalAberto),
+                  resumo.valorFormatado,
                   style: theme.textTheme.headlineSmall?.copyWith(
                     color: const Color(0xFF5B3C1C),
                     fontWeight: FontWeight.w900,

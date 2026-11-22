@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app_state.dart';
 import '../../../data/models/produto_model.dart';
+import '../../../shared/calculo_orcamento.dart';
 import '../../../shared/formatters.dart';
 
 class ProdutosListPage extends StatefulWidget {
@@ -189,8 +190,10 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
     var ativo = produto?.ativo ?? true;
     var salvando = false;
 
-    await showDialog<void>(
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final rota = DialogRoute<void>(
       context: context,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
       builder: (dialogContext) {
         final formKey = GlobalKey<FormState>();
         return StatefulBuilder(
@@ -277,13 +280,20 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Valor base',
+                            helperText:
+                                produto != null &&
+                                    !CalculoOrcamento.valorValido(
+                                      produto.valorBase,
+                                    )
+                                ? 'Revise o preço histórico antes de salvar.'
+                                : null,
                           ),
                           validator: (value) {
                             final valor = parseDecimalOrNull(value ?? '');
                             if (valor == null || valor < 0) {
-                              return 'Informe um valor válido.';
+                              return CalculoOrcamento.mensagemValor;
                             }
                             return null;
                           },
@@ -325,9 +335,7 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
                           if (!formKey.currentState!.validate()) return;
                           FocusScope.of(dialogContext).unfocus();
                           final navigator = Navigator.of(dialogContext);
-                          final messenger = ScaffoldMessenger.of(
-                            dialogContext,
-                          );
+                          final messenger = ScaffoldMessenger.of(dialogContext);
                           final valorBase = parseDecimalOrNull(
                             valorController.text,
                           );
@@ -369,6 +377,9 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
       },
     );
 
+    await navigator.push(rota);
+    // Os campos ainda usam os controladores durante a animação de saída.
+    await rota.completed;
     nomeController.dispose();
     codigoController.dispose();
     categoriaController.dispose();
@@ -385,7 +396,9 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
       builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Excluir produto'),
-          content: Text('Remover ${produto.codigo ?? produto.nome} do catálogo?'),
+          content: Text(
+            'Remover ${produto.codigo ?? produto.nome} do catálogo?',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -404,9 +417,9 @@ class _ProdutosListPageState extends State<ProdutosListPage> {
         await state.excluirProduto(id);
       } catch (e) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao excluir produto: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao excluir produto: $e')));
       }
     }
   }

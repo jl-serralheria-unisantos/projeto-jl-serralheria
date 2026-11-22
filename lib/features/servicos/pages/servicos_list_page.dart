@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app_state.dart';
 import '../../../data/models/servico_model.dart';
+import '../../../shared/calculo_orcamento.dart';
 import '../../../shared/formatters.dart';
 
 class ServicosListPage extends StatefulWidget {
@@ -178,8 +179,10 @@ class _ServicosListPageState extends State<ServicosListPage> {
     var ativo = servico?.ativo ?? true;
     var salvando = false;
 
-    await showDialog<void>(
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final rota = DialogRoute<void>(
       context: context,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
       builder: (dialogContext) {
         final formKey = GlobalKey<FormState>();
         return StatefulBuilder(
@@ -230,13 +233,20 @@ class _ServicosListPageState extends State<ServicosListPage> {
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
-                                decoration: const InputDecoration(
+                                decoration: InputDecoration(
                                   labelText: 'Valor base',
+                                  helperText:
+                                      servico != null &&
+                                          !CalculoOrcamento.valorValido(
+                                            servico.valorBase,
+                                          )
+                                      ? 'Revise o preço histórico antes de salvar.'
+                                      : null,
                                 ),
                                 validator: (value) {
                                   final valor = parseDecimalOrNull(value ?? '');
                                   if (valor == null || valor < 0) {
-                                    return 'Informe um valor valido.';
+                                    return CalculoOrcamento.mensagemValor;
                                   }
                                   return null;
                                 },
@@ -281,9 +291,7 @@ class _ServicosListPageState extends State<ServicosListPage> {
                           if (!formKey.currentState!.validate()) return;
                           FocusScope.of(dialogContext).unfocus();
                           final navigator = Navigator.of(dialogContext);
-                          final messenger = ScaffoldMessenger.of(
-                            dialogContext,
-                          );
+                          final messenger = ScaffoldMessenger.of(dialogContext);
                           final valorBase = parseDecimalOrNull(
                             valorController.text,
                           );
@@ -321,6 +329,9 @@ class _ServicosListPageState extends State<ServicosListPage> {
       },
     );
 
+    await navigator.push(rota);
+    // Os campos ainda usam os controladores durante a animação de saída.
+    await rota.completed;
     nomeController.dispose();
     unidadeController.dispose();
     valorController.dispose();
@@ -354,9 +365,9 @@ class _ServicosListPageState extends State<ServicosListPage> {
         await state.excluirServico(id);
       } catch (e) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao excluir servico: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao excluir servico: $e')));
       }
     }
   }
