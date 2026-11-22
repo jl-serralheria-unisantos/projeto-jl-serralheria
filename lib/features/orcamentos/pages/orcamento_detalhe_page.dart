@@ -82,11 +82,8 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                               final statusBox = _StatusResumo(
                                 orcamento: orcamento,
                                 state: _state,
-                                onVisualizarPdf: () => _visualizarPdf(
-                                  context,
-                                  orcamento,
-                                  cliente,
-                                ),
+                                onVisualizarPdf: () =>
+                                    _visualizarPdf(context, orcamento, cliente),
                                 onCompartilharPdf: () => _compartilharPdf(
                                   context,
                                   orcamento,
@@ -150,7 +147,7 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text(
-                                          '${decimalText(item.quantidade)} ${item.unidade} × ${formatMoney(item.valorUnitario)}',
+                                          '${quantidadeText(item.quantidade)} ${item.unidade} × ${formatMoney(item.valorUnitario)}',
                                         ),
                                         if ((item.observacoes ?? '')
                                             .isNotEmpty) ...[
@@ -204,7 +201,9 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                                     ),
                                   ),
                                   Text(
-                                    formatMoney(orcamento.valorFinal),
+                                    orcamento.requerRevisao
+                                        ? 'Histórico: ${formatMoney(orcamento.valorFinal)}'
+                                        : formatMoney(orcamento.valorFinal),
                                     style: theme.textTheme.headlineSmall
                                         ?.copyWith(
                                           color: const Color(0xFF2F6F63),
@@ -293,9 +292,9 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
       await acao();
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao gerar PDF: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erro ao gerar PDF: $e')));
     }
   }
 

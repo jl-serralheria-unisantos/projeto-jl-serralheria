@@ -1,49 +1,41 @@
 import 'package:intl/intl.dart';
 
+import 'calculo_orcamento.dart';
+
 final NumberFormat _moneyFormat = NumberFormat.currency(
   locale: 'pt_BR',
   symbol: 'R\$',
 );
 
 String formatMoney(double value) {
-  return _moneyFormat.format(value);
+  return value.isFinite ? _moneyFormat.format(value) : 'Valor inválido';
 }
 
 String formatDate(DateTime value) {
   return DateFormat('dd/MM/yyyy').format(value);
 }
 
-String decimalText(double value, {int fractionDigits = 2}) {
-  return value.toStringAsFixed(fractionDigits).replaceAll('.', ',');
-}
+String quantidadeText(double value) => !value.isFinite
+    ? 'Inválido'
+    : value.toString().replaceFirst(RegExp(r'\.0$'), '').replaceAll('.', ',');
 
-double parseDecimal(String value) {
-  return parseDecimalOrNull(value) ?? 0;
-}
+// Não arredondar preços/descontos históricos ao preencher um editor.
+String decimalText(double value) => CalculoOrcamento.valorValido(value)
+    ? value.toStringAsFixed(2).replaceAll('.', ',')
+    : quantidadeText(value);
 
-double? parseDecimalOrNull(String value) {
-  var normalized = value.trim().replaceAll(RegExp(r'[^0-9,.-]'), '');
-  if (normalized.isEmpty) return null;
+double? parseDecimalOrNull(String value) => CalculoOrcamento.lerValor(value);
 
-  final minusCount = '-'.allMatches(normalized).length;
-  if (minusCount > 1 || (minusCount == 1 && !normalized.startsWith('-'))) {
+/// Convenção do leitor anterior para strings já armazenadas. Campos novos
+/// continuam numéricos. Nunca aplicar esta interpretação a entradas do editor.
+double? lerDecimalPersistido(String value) {
+  var text = value.trim();
+  if (RegExp(r'^-?\d{1,3}(?:\.\d{3})+(?:,\d+)?$').hasMatch(text)) {
+    text = text.replaceAll('.', '');
+  }
+  if (!RegExp(r'^-?\d+(?:[.,]\d+)?(?:[eE][+-]?\d+)?$').hasMatch(text)) {
     return null;
   }
-
-  final isNegative = normalized.startsWith('-');
-  normalized = normalized.replaceAll('-', '');
-  if (normalized.isEmpty) return null;
-
-  if (normalized.contains(',')) {
-    normalized = normalized.replaceAll('.', '').replaceAll(',', '.');
-  } else if (_hasDotThousands(normalized)) {
-    normalized = normalized.replaceAll('.', '');
-  }
-
-  if (isNegative) normalized = '-$normalized';
-  return double.tryParse(normalized);
-}
-
-bool _hasDotThousands(String value) {
-  return RegExp(r'^\d{1,3}(\.\d{3})+$').hasMatch(value);
+  final result = double.tryParse(text.replaceAll(',', '.'));
+  return result != null && result.isFinite ? result : null;
 }

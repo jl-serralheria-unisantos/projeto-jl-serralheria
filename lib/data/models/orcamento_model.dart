@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../shared/formatters.dart';
+import '../../shared/calculo_orcamento.dart';
 
 class Orcamento {
   final String? id;
@@ -25,17 +26,22 @@ class Orcamento {
     this.itens = const [],
   });
 
+  BigInt get subtotalCentavos =>
+      CalculoOrcamento.somar(itens.map((i) => i.subtotalCentavos));
   double get subtotal =>
-      itens.fold<double>(0, (total, item) => total + item.subtotal);
+      itens.every((i) => i.quantidade.isFinite && i.valorUnitario.isFinite)
+      ? CalculoOrcamento.reais(subtotalCentavos)
+      : double.nan;
+  double get valorFinal => valorTotal;
 
-  double get valorFinal {
-    if (itens.isEmpty && valorTotal > 0) {
-      return valorTotal;
-    }
-
-    final total = subtotal - desconto;
-    return total < 0 ? 0 : total;
-  }
+  bool get requerRevisao =>
+      itens.any(
+        (i) =>
+            !CalculoOrcamento.quantidadeValida(i.quantidade) ||
+            !CalculoOrcamento.valorValido(i.valorUnitario),
+      ) ||
+      CalculoOrcamento.erroDesconto(subtotalCentavos, desconto) != null ||
+      CalculoOrcamento.total(subtotalCentavos, desconto) != valorTotal;
 
   Map<String, dynamic> toFirestore() {
     return {
@@ -51,16 +57,19 @@ class Orcamento {
   }
 
   factory Orcamento.fromFirestore(DocumentSnapshot doc) {
-    final map = _documentData(doc);
+    return Orcamento.fromMap(doc.id, _documentData(doc));
+  }
+
+  factory Orcamento.fromMap(String id, Map<String, dynamic> map) {
     final itens = _itemList(map['itens']);
-    final desconto = _nonNegativeDouble(map['desconto']);
+    final desconto = _doubleValue(map['desconto']);
     return Orcamento(
-      id: doc.id,
+      id: id,
       clienteId: _stringValue(map['cliente_id']),
       dataCriacao: _dateValue(map['data_criacao']),
       status: _statusValue(map['status']),
       desconto: desconto,
-      valorTotal: _nonNegativeDouble(
+      valorTotal: _doubleValue(
         map['valor_total'],
         fallback: _calcularValorFinal(itens, desconto),
       ),
@@ -113,7 +122,11 @@ class ItemOrcamentoEmbutido {
     this.observacoes,
   });
 
-  double get subtotal => quantidade * valorUnitario;
+  BigInt get subtotalCentavos =>
+      CalculoOrcamento.centavosLinha(quantidade, valorUnitario);
+  double get subtotal => quantidade.isFinite && valorUnitario.isFinite
+      ? CalculoOrcamento.reais(subtotalCentavos)
+      : double.nan;
 
   Map<String, dynamic> toMap() {
     return {
@@ -132,9 +145,9 @@ class ItemOrcamentoEmbutido {
       tipo: _tipoItemValue(map['tipo']),
       origemId: _optionalString(map['origem_id']),
       descricao: _stringValue(map['descricao'], fallback: 'Item sem descrição'),
-      quantidade: _nonNegativeDouble(map['quantidade']),
+      quantidade: _doubleValue(map['quantidade']),
       unidade: _stringValue(map['unidade'], fallback: 'un'),
-      valorUnitario: _nonNegativeDouble(map['valor_unitario']),
+      valorUnitario: _doubleValue(map['valor_unitario']),
       observacoes: _optionalString(map['observacoes']),
     );
   }
@@ -174,14 +187,9 @@ DateTime _dateValue(Object? value) {
 double _doubleValue(Object? value, {double fallback = 0}) {
   if (value is num) return value.toDouble();
   if (value is String) {
-    return parseDecimalOrNull(value) ?? fallback;
+    return lerDecimalPersistido(value) ?? double.nan;
   }
   return fallback;
-}
-
-double _nonNegativeDouble(Object? value, {double fallback = 0}) {
-  final result = _doubleValue(value, fallback: fallback);
-  return result < 0 ? fallback : result;
 }
 
 int _positiveInt(Object? value, {required int fallback}) {
@@ -194,9 +202,10 @@ int _positiveInt(Object? value, {required int fallback}) {
 
 String _statusValue(Object? value) {
   const validStatuses = {'em_aberto', 'enviado', 'aprovado', 'recusado'};
-  final status = _stringValue(value, fallback: 'em_aberto')
-      .trim()
-      .toLowerCase();
+  final status = _stringValue(
+    value,
+    fallback: 'em_aberto',
+  ).trim().toLowerCase();
   return validStatuses.contains(status) ? status : 'em_aberto';
 }
 
@@ -217,11 +226,12 @@ List<ItemOrcamentoEmbutido> _itemList(Object? value) {
   return itens;
 }
 
-double _calcularValorFinal(
-  List<ItemOrcamentoEmbutido> itens,
-  double desconto,
-) {
-  final subtotal = itens.fold<double>(0, (total, item) => total + item.subtotal);
+// Apenas para registros antigos sem valor_total, reproduz a regra original.
+double _calcularValorFinal(List<ItemOrcamentoEmbutido> itens, double desconto) {
+  final subtotal = itens.fold<double>(
+    0,
+    (total, item) => total + item.quantidade * item.valorUnitario,
+  );
   final total = subtotal - desconto;
   return total < 0 ? 0 : total;
 }

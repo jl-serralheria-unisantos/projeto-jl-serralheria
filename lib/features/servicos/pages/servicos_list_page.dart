@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app_state.dart';
 import '../../../data/models/servico_model.dart';
+import '../../../shared/calculo_orcamento.dart';
 import '../../../shared/formatters.dart';
 
 class ServicosListPage extends StatefulWidget {
@@ -236,7 +237,7 @@ class _ServicosListPageState extends State<ServicosListPage> {
                                 validator: (value) {
                                   final valor = parseDecimalOrNull(value ?? '');
                                   if (valor == null || valor < 0) {
-                                    return 'Informe um valor valido.';
+                                    return CalculoOrcamento.mensagemValor;
                                   }
                                   return null;
                                 },
@@ -281,9 +282,7 @@ class _ServicosListPageState extends State<ServicosListPage> {
                           if (!formKey.currentState!.validate()) return;
                           FocusScope.of(dialogContext).unfocus();
                           final navigator = Navigator.of(dialogContext);
-                          final messenger = ScaffoldMessenger.of(
-                            dialogContext,
-                          );
+                          final messenger = ScaffoldMessenger.of(dialogContext);
                           final valorBase = parseDecimalOrNull(
                             valorController.text,
                           );
@@ -354,9 +353,9 @@ class _ServicosListPageState extends State<ServicosListPage> {
         await state.excluirServico(id);
       } catch (e) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao excluir servico: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erro ao excluir servico: $e')));
       }
     }
   }

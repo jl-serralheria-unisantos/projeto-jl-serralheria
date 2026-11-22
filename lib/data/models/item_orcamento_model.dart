@@ -1,3 +1,5 @@
+import '../../shared/calculo_orcamento.dart';
+
 class ItemOrcamento {
   final int? id;
   final int? orcamentoId;
@@ -23,7 +25,11 @@ class ItemOrcamento {
     this.observacoes,
   });
 
-  double get subtotal => quantidade * valorUnitario;
+  BigInt get subtotalCentavos =>
+      CalculoOrcamento.centavosLinha(quantidade, valorUnitario);
+  double get subtotal => quantidade.isFinite && valorUnitario.isFinite
+      ? CalculoOrcamento.reais(subtotalCentavos)
+      : double.nan;
 
   Map<String, dynamic> toMap() {
     return {
