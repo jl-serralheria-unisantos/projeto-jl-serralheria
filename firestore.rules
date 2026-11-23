@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function ownerUid() {
+      // Preencher com o UID da conta provisionada no Firebase Authentication.
+      return '';
+    }
+
+    match /{collection}/{document} {
+      allow read, write: if collection in ['clientes', 'produtos', 'servicos', 'orcamentos']
+        && request.auth != null
+        && request.auth.uid == ownerUid()
+        && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+  }
+}
