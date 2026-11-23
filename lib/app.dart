@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_state.dart';
+import 'features/auth/owner_session.dart';
 import 'features/clientes/pages/clientes_list_page.dart';
 import 'features/orcamentos/pages/orcamento_form_page.dart';
 import 'features/orcamentos/pages/orcamentos_list_page.dart';
@@ -9,7 +10,9 @@ import 'features/servicos/pages/servicos_list_page.dart';
 import 'shared/formatters.dart';
 
 class SerralheriaApp extends StatefulWidget {
-  const SerralheriaApp({super.key});
+  const SerralheriaApp({super.key, required this.onSignOut});
+
+  final Future<void> Function() onSignOut;
 
   @override
   State<SerralheriaApp> createState() => _SerralheriaAppState();
@@ -80,14 +83,17 @@ class _SerralheriaAppState extends State<SerralheriaApp> {
         home: ListenableBuilder(
           listenable: _state,
           builder: (context, _) {
-            if (_state.carregando) return const _LoadingPage();
+            if (_state.carregando) {
+              return _LoadingPage(onSignOut: widget.onSignOut);
+            }
             if (_state.erroCarregamento != null) {
               return _ErrorPage(
                 erro: _state.erroCarregamento!,
                 onRetry: () => _state.carregarTudo(),
+                onSignOut: widget.onSignOut,
               );
             }
-            return const HomePage();
+            return HomePage(onSignOut: widget.onSignOut);
           },
         ),
       ),
@@ -96,12 +102,14 @@ class _SerralheriaAppState extends State<SerralheriaApp> {
 }
 
 class _LoadingPage extends StatelessWidget {
-  const _LoadingPage();
+  const _LoadingPage({required this.onSignOut});
+  final Future<void> Function() onSignOut;
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
+    return Scaffold(
+      appBar: AppBar(actions: [SignOutButton(signOut: onSignOut)]),
+      body: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -116,14 +124,20 @@ class _LoadingPage extends StatelessWidget {
 }
 
 class _ErrorPage extends StatelessWidget {
-  const _ErrorPage({required this.erro, required this.onRetry});
+  const _ErrorPage({
+    required this.erro,
+    required this.onRetry,
+    required this.onSignOut,
+  });
 
   final String erro;
   final VoidCallback onRetry;
+  final Future<void> Function() onSignOut;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(actions: [SignOutButton(signOut: onSignOut)]),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -133,7 +147,7 @@ class _ErrorPage extends StatelessWidget {
               const Icon(Icons.cloud_off, size: 48, color: Colors.red),
               const SizedBox(height: 16),
               const Text(
-                'Erro ao conectar com o Firebase',
+                'Falha ao carregar os dados',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -164,7 +178,8 @@ class _ErrorPage extends StatelessWidget {
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, required this.onSignOut});
+  final Future<void> Function() onSignOut;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -197,6 +212,7 @@ class _HomePageState extends State<HomePage> {
           appBar: AppBar(
             title: const Text('JL Serralheria'),
             actions: [
+              SignOutButton(signOut: widget.onSignOut),
               Padding(
                 padding: const EdgeInsets.only(right: 12),
                 child: isCompact
