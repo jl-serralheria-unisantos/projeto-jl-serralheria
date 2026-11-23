@@ -10,6 +10,7 @@ import 'data/repositories/produto_repository.dart';
 import 'data/repositories/servico_repository.dart';
 import 'shared/calculo_orcamento.dart';
 import 'shared/formatters.dart';
+import 'shared/firebase_failure.dart';
 
 class AppStateScope extends InheritedWidget {
   const AppStateScope({super.key, required this.state, required super.child});
@@ -180,7 +181,33 @@ class AppState extends ChangeNotifier {
     return null;
   }
 
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    clientes.clear();
+    produtos.clear();
+    servicos.clear();
+    orcamentos.clear();
+    erroCarregamento = null;
+    super.dispose();
+  }
+
+  Future<T> _write<T>(Future<T> Function() operation) async {
+    if (_disposed) throw StateError('A sessão foi encerrada.');
+    try {
+      return await operation();
+    } catch (error) {
+      throw FirebaseFailure.forOperation(
+        error,
+        'Não foi possível salvar a alteração.',
+      );
+    }
+  }
+
   Future<void> carregarTudo() async {
+    if (_disposed) return;
     carregando = true;
     erroCarregamento = null;
     notifyListeners();
@@ -193,6 +220,7 @@ class AppState extends ChangeNotifier {
         _orcamentoRepo.listarTodos(),
       ]);
 
+      if (_disposed) return;
       clientes
         ..clear()
         ..addAll(results[0] as List<Cliente>);
@@ -206,18 +234,23 @@ class AppState extends ChangeNotifier {
         ..clear()
         ..addAll(results[3] as List<Orcamento>);
     } catch (e) {
-      erroCarregamento = e.toString();
+      if (_disposed) return;
+      erroCarregamento = FirebaseFailure.forOperation(
+        e,
+        'Não foi possível carregar os dados.',
+      ).message;
     }
 
     carregando = false;
-    notifyListeners();
+    if (hasListeners) notifyListeners();
   }
 
   // ── Clientes ──────────────────────────────────────────────────────────────
 
   Future<String> salvarCliente(Cliente cliente) async {
     if (cliente.id == null) {
-      final id = await _clienteRepo.inserir(cliente);
+      final id = await _write(() => _clienteRepo.inserir(cliente));
+      if (_disposed) return id;
       final novo = Cliente(
         id: id,
         nome: cliente.nome,
@@ -230,7 +263,8 @@ class AppState extends ChangeNotifier {
       _notify();
       return id;
     }
-    await _clienteRepo.atualizar(cliente);
+    await _write(() => _clienteRepo.atualizar(cliente));
+    if (_disposed) return cliente.id!;
     final index = clientes.indexWhere((c) => c.id == cliente.id);
     if (index >= 0) {
       clientes[index] = cliente;
@@ -248,7 +282,8 @@ class AppState extends ChangeNotifier {
       );
     }
 
-    await _clienteRepo.excluir(id);
+    await _write(() => _clienteRepo.excluir(id));
+    if (_disposed) return;
     clientes.removeWhere((c) => c.id == id);
     _notify();
   }
@@ -260,7 +295,8 @@ class AppState extends ChangeNotifier {
       throw StateError(CalculoOrcamento.mensagemValor);
     }
     if (produto.id == null) {
-      final id = await _produtoRepo.inserir(produto);
+      final id = await _write(() => _produtoRepo.inserir(produto));
+      if (_disposed) return id;
       final novo = Produto(
         id: id,
         nome: produto.nome,
@@ -276,7 +312,8 @@ class AppState extends ChangeNotifier {
       _notify();
       return id;
     }
-    await _produtoRepo.atualizar(produto);
+    await _write(() => _produtoRepo.atualizar(produto));
+    if (_disposed) return produto.id!;
     final index = produtos.indexWhere((p) => p.id == produto.id);
     if (index >= 0) {
       produtos[index] = produto;
@@ -287,7 +324,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> excluirProduto(String id) async {
-    await _produtoRepo.excluir(id);
+    await _write(() => _produtoRepo.excluir(id));
+    if (_disposed) return;
     produtos.removeWhere((p) => p.id == id);
     _notify();
   }
@@ -299,7 +337,8 @@ class AppState extends ChangeNotifier {
       throw StateError(CalculoOrcamento.mensagemValor);
     }
     if (servico.id == null) {
-      final id = await _servicoRepo.inserir(servico);
+      final id = await _write(() => _servicoRepo.inserir(servico));
+      if (_disposed) return id;
       final novo = Servico(
         id: id,
         nome: servico.nome,
@@ -313,7 +352,8 @@ class AppState extends ChangeNotifier {
       _notify();
       return id;
     }
-    await _servicoRepo.atualizar(servico);
+    await _write(() => _servicoRepo.atualizar(servico));
+    if (_disposed) return servico.id!;
     final index = servicos.indexWhere((s) => s.id == servico.id);
     if (index >= 0) {
       servicos[index] = servico;
@@ -324,7 +364,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> excluirServico(String id) async {
-    await _servicoRepo.excluir(id);
+    await _write(() => _servicoRepo.excluir(id));
+    if (_disposed) return;
     servicos.removeWhere((s) => s.id == id);
     _notify();
   }
@@ -361,7 +402,8 @@ class AppState extends ChangeNotifier {
       itens: itensEmbutidos,
     );
 
-    final id = await _orcamentoRepo.inserir(orcamento);
+    final id = await _write(() => _orcamentoRepo.inserir(orcamento));
+    if (_disposed) return id;
     final novo = Orcamento(
       id: id,
       clienteId: orcamento.clienteId,
@@ -412,7 +454,8 @@ class AppState extends ChangeNotifier {
       itens: itensEmbutidos,
     );
 
-    await _orcamentoRepo.atualizar(atualizado);
+    await _write(() => _orcamentoRepo.atualizar(atualizado));
+    if (_disposed) return id;
     orcamentos[index] = atualizado;
     _ordenarOrcamentos();
     _notify();
@@ -420,7 +463,10 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> atualizarStatusOrcamento(String id, String status) async {
-    await _orcamentoRepo.atualizarStatus(orcamentoId: id, status: status);
+    await _write(
+      () => _orcamentoRepo.atualizarStatus(orcamentoId: id, status: status),
+    );
+    if (_disposed) return;
     final index = orcamentos.indexWhere((o) => o.id == id);
     if (index >= 0) {
       orcamentos[index] = orcamentos[index].copyWith(status: status);
@@ -429,7 +475,8 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> excluirOrcamento(String id) async {
-    await _orcamentoRepo.excluir(id);
+    await _write(() => _orcamentoRepo.excluir(id));
+    if (_disposed) return;
     orcamentos.removeWhere((o) => o.id == id);
     _notify();
   }

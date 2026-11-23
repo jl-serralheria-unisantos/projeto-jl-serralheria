@@ -82,10 +82,41 @@ flutter pub get
 Execute o projeto:
 
 ```bash
-flutter run
+flutter run --dart-define-from-file=.env.owner.json
 ```
 
 ## Firebase
+
+### Configuração do proprietário
+
+1. No projeto correto do Firebase, habilite o provedor **E-mail/senha** em Authentication. Em **Users**, crie a conta do proprietário pelo console ou selecione a conta existente. Copie o UID atribuído pelo Firebase. Use as credenciais apenas no login.
+2. Para impedir cadastro direto pela API, desative a criação de contas pelos usuários finais em **Authentication → Settings → User actions**. Caso essa opção exija Identity Platform no seu projeto, verifique disponibilidade e custo antes de habilitá-la. Enquanto o cadastro no provedor estiver aberto, outras contas poderão existir no Auth, mas as regras abaixo bloqueiam o acesso delas aos dados. [Documentação de cadastro pelo administrador](https://docs.cloud.google.com/identity-platform/docs/concepts-manage-users)
+3. Crie `.env.owner.json` com o conteúdo `{"OWNER_UID":"UID_COPIADO_DO_CONSOLE"}` usando o UID real. Este arquivo identifica a conta. A senha pertence ao login. Use o mesmo JSON na validação e em `flutter run`, `flutter build web` e `flutter build apk` com `--dart-define-from-file=.env.owner.json`. O template `firestore.rules` do repositório deve permanecer com UID vazio.
+4. Prepare o candidato em um caminho novo. Os comandos abaixo usam Node.js 22, Java 21 ou superior e somente os emuladores locais. O provisionamento das contas de teste ocorre no projeto fictício `demo-jl-serralheria`.
+
+```sh
+node scripts/prepare-firestore.mjs .env.owner.json build/ativacao/candidato.rules
+npx --yes firebase-tools@14.27.0 emulators:exec --only "auth,firestore" --project demo-jl-serralheria "node scripts/test-firestore.mjs build/ativacao/candidato.rules .env.owner.json"
+```
+
+O primeiro comando gera um arquivo separado. O segundo lê o candidato sem modificá-lo, verifica o UID contra o JSON do build e carrega o conteúdo no emulador. A suíte cobre o template fechado, os quatro cadastros e os acessos por UID, provedor e caminho. Somente após aprovação ela imprime o SHA-256 e grava `candidato.rules.sha256`. Arquive o candidato, o hash e a identificação do build juntos. Repita a validação após qualquer alteração.
+
+Na ativação manual, confira projeto, banco e conta no console, a sincronização das últimas alterações e a assinatura do APK instalado. Coordene a atualização do aplicativo e a publicação **do candidato aprovado**. O `firebase.json` da raiz aponta ao template fechado. Depois da publicação, confira o conteúdo do ruleset da release ativa e seu SHA-256 comparando os mesmos bytes UTF-8 com o registro da validação. Verifique o acesso do proprietário por leitura. Versões antigas sem login perdem o acesso ao servidor após a propagação. A transição preserva os documentos e dispensa migração. Para recuperação de senha, redefina a senha da mesma conta para preservar o UID.
+
+### Sessão e acesso offline
+
+Ao iniciar ou voltar ao primeiro plano, o aplicativo consulta o Firebase Authentication antes de mostrar dados. Enquanto verifica a conta, bloqueia as telas privadas. Falha de conexão mantém a sessão bloqueada e oferece nova tentativa. Uma validação bem-sucedida permite continuar a edição aberta. Desativação, exclusão ou credencial de sessão inválida encerram o acesso e descartam o estado privado em memória. O logout não garante exclusão física do cache do Firestore no aparelho. Uma desativação administrativa durante o uso contínuo pode ser percebida na próxima revalidação. O aplicativo não faz consultas periódicas de autenticação.
+
+### Testar com a configuração fictícia
+
+Para desenvolvimento, use o JSON de demonstração exclusivamente com os emuladores. Em um diretório de saída novo, execute:
+
+```sh
+node scripts/prepare-firestore.mjs scripts/emulator-owner.json build/teste/candidato.rules
+npx --yes firebase-tools@14.27.0 emulators:exec --only "auth,firestore" --project demo-jl-serralheria "node scripts/test-firestore.mjs build/teste/candidato.rules scripts/emulator-owner.json"
+flutter analyze
+flutter test
+```
 
 O projeto utiliza Firebase e Cloud Firestore como persistência principal dos dados.
 
@@ -190,7 +221,7 @@ Para gerar um APK de teste:
 flutter clean
 flutter pub get
 flutter analyze
-flutter build apk
+flutter build apk --dart-define-from-file=.env.owner.json
 ```
 
 O APK será gerado normalmente em:
@@ -202,7 +233,7 @@ build/app/outputs/flutter-apk/app-release.apk
 Para gerar APKs separados por arquitetura:
 
 ```bash
-flutter build apk --split-per-abi
+flutter build apk --split-per-abi --dart-define-from-file=.env.owner.json
 ```
 ## Status atual
 
