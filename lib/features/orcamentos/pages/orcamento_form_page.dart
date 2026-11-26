@@ -23,6 +23,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     text: '7',
   );
   final TextEditingController _observacoesController = TextEditingController();
+  final _observacoesParaClienteController = TextEditingController();
 
   final List<OrcamentoItem> _itens = [];
   int _tempItemId = -1;
@@ -51,6 +52,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     _descontoController.dispose();
     _validadeController.dispose();
     _observacoesController.dispose();
+    _observacoesParaClienteController.dispose();
     super.dispose();
   }
 
@@ -193,6 +195,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     _descontoController.text = decimalText(orcamento.desconto);
     _validadeController.text = '${orcamento.validadeDias}';
     _observacoesController.text = orcamento.observacoes;
+    _observacoesParaClienteController.text = orcamento.observacoesParaCliente;
     _itens
       ..clear()
       ..addAll(
@@ -206,6 +209,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
             unidade: item.unidade,
             valorUnitario: item.valorUnitario,
             observacoes: item.observacoes,
+            detalhesParaCliente: item.detalhesParaCliente,
           );
         }),
       );
@@ -242,6 +246,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
       descontoController: _descontoController,
       validadeController: _validadeController,
       observacoesController: _observacoesController,
+      observacoesParaClienteController: _observacoesParaClienteController,
       onChanged: () => setState(() {}),
     );
   }
@@ -338,38 +343,43 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
     final desconto = parseDecimalOrNull(_descontoController.text);
     if (desconto == null) return;
     final validadeDias = int.tryParse(_validadeController.text.trim()) ?? 7;
-    final observacoes = _observacoesController.text.trim();
+    final observacoes = _observacoesController.text;
+    final observacoesParaCliente = _observacoesParaClienteController.text
+        .trim();
 
     final anterior = widget.orcamentoId == null
         ? null
         : state.orcamentoPorId(widget.orcamentoId!);
     final novoTotal = CalculoOrcamento.total(_subtotalCentavos!, desconto);
-    if (anterior != null &&
-        (anterior.requerRevisao || !anterior.mesmoTotal(novoTotal))) {
-      final confirmar = await showDialog<bool>(
-        context: context,
-        builder: (dialog) => AlertDialog(
-          title: const Text('Atualizar orçamento histórico?'),
-          content: Text(
-            'Total registrado: ${formatMoney(anterior.valorFinal)}. Total após salvar: ${formatMoney(novoTotal)}.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialog, false),
-              child: const Text('Voltar'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialog, true),
-              child: const Text('Confirmar'),
-            ),
-          ],
-        ),
-      );
-      if (!context.mounted || confirmar != true) return;
-    }
     setState(() => _salvando = true);
-
     try {
+      if (anterior != null &&
+          (anterior.requerRevisao || !anterior.mesmoTotal(novoTotal))) {
+        final confirmar = await showDialog<bool>(
+          context: context,
+          builder: (dialog) => AlertDialog(
+            title: const Text('Atualizar orçamento histórico?'),
+            content: Text(
+              'Total registrado: ${formatMoney(anterior.valorFinal)}. Total após salvar: ${formatMoney(novoTotal)}.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialog, false),
+                child: const Text('Voltar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialog, true),
+                child: const Text('Confirmar'),
+              ),
+            ],
+          ),
+        );
+        if (!context.mounted) return;
+        if (confirmar != true) {
+          setState(() => _salvando = false);
+          return;
+        }
+      }
       final orcamentoId = widget.orcamentoId == null
           ? await state.salvarOrcamento(
               clienteId: clienteId,
@@ -377,6 +387,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
               desconto: desconto,
               validadeDias: validadeDias,
               observacoes: observacoes,
+              observacoesParaCliente: observacoesParaCliente,
             )
           : await state.atualizarOrcamento(
               id: widget.orcamentoId!,
@@ -385,6 +396,7 @@ class _OrcamentoFormPageState extends State<OrcamentoFormPage> {
               desconto: desconto,
               validadeDias: validadeDias,
               observacoes: observacoes,
+              observacoesParaCliente: observacoesParaCliente,
             );
 
       if (!context.mounted) return;
@@ -413,6 +425,7 @@ class _DadosOrcamento extends StatelessWidget {
     required this.descontoController,
     required this.validadeController,
     required this.observacoesController,
+    required this.observacoesParaClienteController,
     required this.onChanged,
   });
 
@@ -423,6 +436,7 @@ class _DadosOrcamento extends StatelessWidget {
   final TextEditingController descontoController;
   final TextEditingController validadeController;
   final TextEditingController observacoesController;
+  final TextEditingController observacoesParaClienteController;
   final VoidCallback onChanged;
 
   @override
@@ -508,7 +522,36 @@ class _DadosOrcamento extends StatelessWidget {
               maxLines: 6,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
-                labelText: 'Observações gerais',
+                labelText: 'Observações internas',
+                helperText: 'Visíveis apenas no aplicativo.',
+              ),
+            ),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: observacoesController,
+              builder: (context, valor, _) {
+                final interna = valor.text.trim();
+                return TextButton(
+                  onPressed: interna.isEmpty
+                      ? null
+                      : () {
+                          final publica = observacoesParaClienteController.text
+                              .trim();
+                          if (publica == interna) return;
+                          observacoesParaClienteController.text =
+                              publica.isEmpty ? interna : '$publica\n$interna';
+                        },
+                  child: const Text('Copiar para observações do cliente'),
+                );
+              },
+            ),
+            TextFormField(
+              controller: observacoesParaClienteController,
+              minLines: 3,
+              maxLines: 6,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Observações para o cliente',
+                helperText: 'Este campo aparece no PDF.',
               ),
             ),
           ],
@@ -612,11 +655,13 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
 
   late String _tipo;
   String? _origemId;
+  int _revisaoSelecao = 0;
+  bool _confirmandoTroca = false;
   late final TextEditingController _descricaoController;
   late final TextEditingController _quantidadeController;
   late final TextEditingController _unidadeController;
   late final TextEditingController _valorController;
-  late final TextEditingController _observacoesController;
+  late final TextEditingController _detalhesController;
 
   AppState get _state => widget.state;
 
@@ -635,8 +680,8 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
     _valorController = TextEditingController(
       text: item == null ? '' : decimalText(item.valorUnitario),
     );
-    _observacoesController = TextEditingController(
-      text: item?.observacoes ?? '',
+    _detalhesController = TextEditingController(
+      text: item?.detalhesParaCliente ?? '',
     );
 
     if (item == null) {
@@ -652,7 +697,7 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
     _quantidadeController.dispose();
     _unidadeController.dispose();
     _valorController.dispose();
-    _observacoesController.dispose();
+    _detalhesController.dispose();
     super.dispose();
   }
 
@@ -672,6 +717,7 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
+                  key: ValueKey(('tipo', _revisaoSelecao)),
                   initialValue: _tipo,
                   decoration: const InputDecoration(labelText: 'Tipo de item'),
                   items: const [
@@ -689,25 +735,21 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
                     ),
                   ],
                   onChanged: (value) {
-                    if (value == null) return;
-                    setState(() {
+                    if (value == null || value == _tipo) return;
+                    _trocarSelecao(() {
                       _tipo = value;
                       _origemId = null;
-                      if (_tipo == 'manual') {
-                        _descricaoController.clear();
-                        _unidadeController.text = 'un';
-                        _valorController.clear();
-                        _observacoesController.clear();
-                      } else {
-                        _escolherPrimeiraOrigem();
-                      }
+                      _descricaoController.clear();
+                      _unidadeController.text = 'un';
+                      _valorController.clear();
+                      _escolherPrimeiraOrigem();
                     });
                   },
                 ),
                 if (_tipo == 'produto') ...[
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    key: const ValueKey('produto-orcamento'),
+                    key: ValueKey(('produto', _revisaoSelecao)),
                     initialValue: _origemId,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Produto'),
@@ -727,7 +769,8 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
                       return null;
                     },
                     onChanged: (value) {
-                      setState(() {
+                      if (value == null || value == _origemId) return;
+                      _trocarSelecao(() {
                         _origemId = value;
                         _aplicarProduto(value);
                       });
@@ -737,7 +780,7 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
                 if (_tipo == 'servico') ...[
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
-                    key: const ValueKey('servico-orcamento'),
+                    key: ValueKey(('servico', _revisaoSelecao)),
                     initialValue: _origemId,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Serviço'),
@@ -757,7 +800,8 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
                       return null;
                     },
                     onChanged: (value) {
-                      setState(() {
+                      if (value == null || value == _origemId) return;
+                      _trocarSelecao(() {
                         _origemId = value;
                         _aplicarServico(value);
                       });
@@ -842,12 +886,13 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
-                  controller: _observacoesController,
+                  controller: _detalhesController,
                   minLines: 2,
                   maxLines: 4,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
-                    labelText: 'Observações do item',
+                    labelText: 'Detalhes para o cliente',
+                    helperText: 'Este campo aparece no PDF.',
                   ),
                 ),
               ],
@@ -903,7 +948,6 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
     ].join(' - ');
     _unidadeController.text = produto.unidade;
     _valorController.text = decimalText(produto.valorBase);
-    _observacoesController.text = produto.observacoes ?? '';
   }
 
   void _aplicarServico(String? id) {
@@ -912,11 +956,50 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
     _descricaoController.text = servico.nome;
     _unidadeController.text = servico.unidade;
     _valorController.text = decimalText(servico.valorBase);
-    _observacoesController.text = servico.observacoes ?? '';
+  }
+
+  Future<void> _trocarSelecao(VoidCallback aplicar) async {
+    if (_confirmandoTroca || ModalRoute.of(context)?.isCurrent != true) return;
+    var confirmado = true;
+    if (_detalhesController.text.trim().isNotEmpty) {
+      _confirmandoTroca = true;
+      confirmado =
+          await showDialog<bool>(
+            context: context,
+            builder: (dialog) => AlertDialog(
+              title: const Text('Descartar detalhes do item?'),
+              content: const Text(
+                'A troca limpa os detalhes destinados ao cliente.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialog, false),
+                  child: const Text('Manter item'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(dialog, true),
+                  child: const Text('Trocar item'),
+                ),
+              ],
+            ),
+          ) ==
+          true;
+      if (!mounted) return;
+      _confirmandoTroca = false;
+    }
+    setState(() {
+      // O DropdownButtonFormField mantém internamente a escolha provisória.
+      _revisaoSelecao++;
+      if (!confirmado) return;
+      _detalhesController.clear();
+      aplicar();
+    });
   }
 
   void _aplicar() {
+    if (_confirmandoTroca || ModalRoute.of(context)?.isCurrent != true) return;
     if (!_formKey.currentState!.validate()) return;
+    final detalhes = _detalhesController.text.trim();
     FocusScope.of(context).unfocus();
     Navigator.of(context).pop(
       OrcamentoItem(
@@ -927,7 +1010,8 @@ class _OrcamentoItemDialogState extends State<_OrcamentoItemDialog> {
         quantidade: CalculoOrcamento.lerQuantidade(_quantidadeController.text)!,
         unidade: _unidadeController.text.trim(),
         valorUnitario: parseDecimalOrNull(_valorController.text)!,
-        observacoes: _observacoesController.text.trim(),
+        observacoes: widget.item?.observacoes,
+        detalhesParaCliente: detalhes.isEmpty ? null : detalhes,
       ),
     );
   }

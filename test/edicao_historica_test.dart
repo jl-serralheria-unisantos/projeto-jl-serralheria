@@ -59,9 +59,11 @@ class _Orcamentos extends Fake implements OrcamentoRepository {
       registros.entries.map((e) => Orcamento.fromMap(e.key, e.value)).toList();
   @override
   Future<void> atualizar(Orcamento orcamento) async {
-    registros[orcamento.id!]!.addAll(
-      orcamento.toFirestore(preservarTotalOriginal: true),
-    );
+    final registro = registros[orcamento.id!]!;
+    registro.addAll(orcamento.toFirestore(preservarTotalOriginal: true));
+    if (orcamento.observacoesParaCliente.isEmpty) {
+      registro.remove('observacoes_para_cliente');
+    }
     gravacoes++;
   }
 }
@@ -97,7 +99,7 @@ class _Banco {
     await t.pumpWidget(
       AppStateScope(
         state: estado,
-        child: MaterialApp(home: pagina),
+        child: MaterialApp(key: ObjectKey(pagina), home: pagina),
       ),
     );
     await t.pumpAndSettle();
@@ -111,6 +113,79 @@ Future<void> tocar(WidgetTester t, Finder alvo) async {
 }
 
 void main() {
+  testWidgets(
+    'nota histórica e detalhe público sobrevivem ao salvamento e à reabertura',
+    (t) async {
+      final banco = _Banco();
+      final doc = banco.orcamentos.registros['orc']!;
+      const interna = '  Conferir margem interna  ';
+      doc['observacoes'] = interna;
+      doc['itens'][0]['observacoes'] = 'Nota interna do item';
+      await banco.abrir(t, const OrcamentoFormPage(orcamentoId: 'orc'));
+      final publico = find.widgetWithText(
+        TextFormField,
+        'Observações para o cliente',
+      );
+      String nota() => t.widget<TextFormField>(publico).controller!.text;
+      expect(nota(), isEmpty);
+      await tocar(t, find.text('Copiar para observações do cliente'));
+      expect(nota(), interna.trim());
+      await t.enterText(publico, 'Instalação combinada');
+
+      await tocar(t, find.byTooltip('Editar item'));
+      final detalhes = find.widgetWithText(
+        TextFormField,
+        'Detalhes para o cliente',
+      );
+      await t.enterText(detalhes, 'Acabamento acetinado');
+      await tocar(t, find.text('Aplicar'));
+      await tocar(t, find.text('Salvar alterações'));
+      expect(doc['observacoes'], interna);
+      expect(doc['observacoes_para_cliente'], 'Instalação combinada');
+      expect(doc['itens'][0]['detalhes_para_cliente'], 'Acabamento acetinado');
+      expect(doc['itens'][0]['observacoes'], 'Nota interna do item');
+
+      await banco.estado.carregarTudo();
+      final orcamento = banco.estado.orcamentoPorId('orc')!;
+      final copia = orcamento.copyWith(status: 'aprovado');
+      expect(copia.observacoes, interna);
+      expect(copia.observacoesParaCliente, 'Instalação combinada');
+      await banco.abrir(
+        t,
+        OrcamentoFormPage(key: UniqueKey(), orcamentoId: 'orc'),
+      );
+      expect(nota(), 'Instalação combinada');
+      await tocar(t, find.byTooltip('Editar item'));
+      expect(
+        t.widget<TextFormField>(detalhes).controller!.text,
+        'Acabamento acetinado',
+      );
+      await t.enterText(
+        find.widgetWithText(TextFormField, 'Descrição do item'),
+        'Descrição revisada',
+      );
+      await tocar(t, find.text('Aplicar'));
+      await t.enterText(
+        find.widgetWithText(TextFormField, 'Validade (dias)'),
+        '15',
+      );
+      await tocar(t, find.text('Salvar alterações'));
+      expect(doc['observacoes'], interna);
+      expect(doc['observacoes_para_cliente'], 'Instalação combinada');
+      expect(doc['itens'][0]['detalhes_para_cliente'], 'Acabamento acetinado');
+      expect(doc['valor_total'], 100);
+
+      await banco.abrir(
+        t,
+        OrcamentoFormPage(key: UniqueKey(), orcamentoId: 'orc'),
+      );
+      await t.enterText(publico, '');
+      await tocar(t, find.text('Salvar alterações'));
+      expect(doc, isNot(contains('observacoes_para_cliente')));
+      expect(doc['observacoes'], interna);
+    },
+  );
+
   for (final produto in [true, false]) {
     final tipo = produto ? 'produto' : 'serviço';
     for (final valido in [true, false]) {
@@ -190,7 +265,7 @@ void main() {
       final banco = _Banco(total: bruto);
       await banco.abrir(t, const OrcamentoFormPage(orcamentoId: 'orc'));
       await t.enterText(
-        find.widgetWithText(TextFormField, 'Observações gerais'),
+        find.widgetWithText(TextFormField, 'Observações internas'),
         'Revisado',
       );
       await tocar(t, find.text('Salvar alterações'));

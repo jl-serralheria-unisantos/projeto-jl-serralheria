@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app_state.dart';
+import '../../../shared/dialogo_cadastro.dart';
 import '../../../data/models/cliente_model.dart';
 
 class ClientesListPage extends StatefulWidget {
@@ -168,7 +169,6 @@ class _ClientesListPageState extends State<ClientesListPage> {
     Cliente? cliente,
   ]) async {
     final state = _state;
-    final formKey = GlobalKey<FormState>();
     final nomeController = TextEditingController(text: cliente?.nome ?? '');
     final telefoneController = TextEditingController(
       text: cliente?.telefone ?? '',
@@ -179,129 +179,79 @@ class _ClientesListPageState extends State<ClientesListPage> {
     final observacoesController = TextEditingController(
       text: cliente?.observacoes ?? '',
     );
-    var salvando = false;
-
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(cliente == null ? 'Novo cliente' : 'Editar cliente'),
-              content: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: Form(
-                  key: formKey,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextFormField(
-                          controller: nomeController,
-                          textCapitalization: TextCapitalization.words,
-                          decoration: const InputDecoration(labelText: 'Nome'),
-                          validator: (value) {
-                            if ((value ?? '').trim().isEmpty) {
-                              return 'Informe o nome.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: telefoneController,
-                          keyboardType: TextInputType.phone,
-                          decoration: const InputDecoration(
-                            labelText: 'Telefone',
-                          ),
-                          validator: (value) {
-                            if ((value ?? '').trim().isEmpty) {
-                              return 'Informe o telefone.';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: enderecoController,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(
-                            labelText: 'Endereço',
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: observacoesController,
-                          minLines: 3,
-                          maxLines: 5,
-                          textCapitalization: TextCapitalization.sentences,
-                          decoration: const InputDecoration(
-                            labelText: 'Observações',
-                          ),
-                        ),
-                      ],
-                    ),
+    try {
+      await abrirDialogoCadastro(
+        context: context,
+        sessao: state,
+        tipo: 'cliente',
+        id: cliente?.id,
+        titulo: cliente == null ? 'Novo cliente' : 'Editar cliente',
+        conteudo: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nomeController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(labelText: 'Nome'),
+                  validator: (value) {
+                    if ((value ?? '').trim().isEmpty) {
+                      return 'Informe o nome.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: telefoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(labelText: 'Telefone'),
+                  validator: (value) {
+                    if ((value ?? '').trim().isEmpty) {
+                      return 'Informe o telefone.';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: enderecoController,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(labelText: 'Endereço'),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: observacoesController,
+                  minLines: 3,
+                  maxLines: 5,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Observações internas',
                   ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: salvando
-                      ? null
-                      : () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Cancelar'),
-                ),
-                FilledButton.icon(
-                  onPressed: salvando
-                      ? null
-                      : () async {
-                          if (!formKey.currentState!.validate()) return;
-                          FocusScope.of(dialogContext).unfocus();
-                          final navigator = Navigator.of(dialogContext);
-                          final messenger = ScaffoldMessenger.of(
-                            dialogContext,
-                          );
-
-                          final novoCliente = Cliente(
-                            id: cliente?.id,
-                            nome: nomeController.text.trim(),
-                            telefone: telefoneController.text.trim(),
-                            endereco: enderecoController.text.trim(),
-                            observacoes: observacoesController.text.trim(),
-                          );
-
-                          setDialogState(() => salvando = true);
-                          try {
-                            await state.salvarCliente(novoCliente);
-
-                            if (!dialogContext.mounted) return;
-
-                            navigator.pop();
-                          } catch (e) {
-                            if (!dialogContext.mounted) return;
-                            setDialogState(() => salvando = false);
-
-                            messenger.showSnackBar(
-                              SnackBar(
-                                content: Text('Erro ao salvar cliente: $e'),
-                              ),
-                            );
-                          }
-                        },
-                  icon: const Icon(Icons.check),
-                  label: Text(salvando ? 'Salvando...' : 'Salvar'),
-                ),
               ],
-            );
-          },
-        );
-      },
-    );
-
-    nomeController.dispose();
-    telefoneController.dispose();
-    enderecoController.dispose();
-    observacoesController.dispose();
+            ),
+          ),
+        ),
+        gravar: () async {
+          final novoCliente = Cliente(
+            id: cliente?.id,
+            nome: nomeController.text.trim(),
+            telefone: telefoneController.text.trim(),
+            endereco: enderecoController.text.trim(),
+            observacoes: observacoesController.text.trim(),
+          );
+          await state.salvarCliente(novoCliente);
+        },
+      );
+    } finally {
+      nomeController.dispose();
+      telefoneController.dispose();
+      enderecoController.dispose();
+      observacoesController.dispose();
+    }
   }
 
   Future<void> _confirmarExclusao(BuildContext context, Cliente cliente) async {

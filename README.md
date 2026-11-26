@@ -247,6 +247,28 @@ O projeto está na fase de integração final das funcionalidades principais:
 
 ## Cálculo dos orçamentos
 
+### Conteúdo compartilhado no PDF
+
+O PDF inclui o nome, o telefone e o endereço do cliente. As observações dos cadastros e as **Observações internas** do orçamento ficam no aplicativo. Use **Observações para o cliente** no orçamento e **Detalhes para o cliente** em cada item para publicar texto. Nos registros históricos, ambos os campos públicos começam vazios. No formulário do orçamento, **Copiar para observações do cliente** acrescenta a nota interna ao texto público para revisão antes de salvar. Ao trocar a origem ou o tipo de um item com detalhes preenchidos, o formulário pede confirmação antes de limpar o campo.
+
+O PDF incorpora Noto Sans Regular e Bold a partir dos assets locais. Os arquivos originais foram obtidos do [projeto Noto](https://github.com/notofonts/noto-fonts/tree/main/hinted/ttf/NotoSans) e a licença SIL Open Font License 1.1 acompanha as fontes em `assets/fonts/OFL-NotoSans.txt`.
+
+A cobertura inclui os caracteres brasileiros e os símbolos comerciais testados. Alguns alfabetos e emojis podem aparecer como glifos ausentes.
+
+Para conferir a extração de texto e renderizar as amostras sintéticas, instale `pypdfium2` e `Pillow` em um ambiente Python local e execute no PowerShell:
+
+```powershell
+$env:PDF_QA_DIR = 'build/pdf-qa/samples'
+flutter test test/pdf_privacidade_test.dart
+python scripts/check-pdf-fixtures.py build/pdf-qa/samples
+```
+
+### Gravações pendentes nos cadastros
+
+O formulário mantém os campos preenchidos enquanto aguarda o resultado. Após oito segundos, **Sair e aguardar** fecha o diálogo e deixa a operação em andamento. O SDK do Firestore pode sincronizar uma gravação pendente ao recuperar a conexão. Enquanto a operação estiver pendente na mesma sessão do aplicativo, o cadastro impede reenviar o mesmo registro ou iniciar outra criação da mesma categoria. Depois de reiniciar o aplicativo, confira a lista antes de cadastrar novamente, pois o bloqueio de interface é mantido em memória.
+
+### Política financeira
+
 Cada linha multiplica a quantidade pelo preço unitário em representação decimal exata e arredonda uma vez para centavos. Meio centavo arredonda para cima. O subtotal soma os centavos das linhas. O desconto pode ir de zero até o subtotal, inclusive. Por exemplo, 200 linhas de 0,125 m a R$ 1,00/m somam R$ 26,00. Uma única linha de 25 m ao mesmo preço soma R$ 25,00.
 
 O editor aceita até nove dígitos inteiros, duas casas para dinheiro e seis para quantidades positivas de qualquer unidade, inclusive metro, área e hora. A unidade é texto livre no cadastro. A vírgula separa decimais. O agrupamento de milhares exige uma parte decimal explícita, como em `1.234,56`. Para mil unidades inteiras, digite `1000`. O subtotal máximo por orçamento é R$ 999.999.999,99.
