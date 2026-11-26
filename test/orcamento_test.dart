@@ -12,6 +12,7 @@ ItemOrcamentoEmbutido linha(double qtd, double preco) => ItemOrcamentoEmbutido(
 );
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   test('meio centavo arredonda para cima por linha', () {
     expect(linha(0.125, 1).subtotal, 0.13);
     expect(linha(0.1, 0.15).subtotal, 0.02);

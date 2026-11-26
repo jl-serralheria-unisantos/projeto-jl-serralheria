@@ -153,11 +153,16 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                                             .isNotEmpty) ...[
                                           const SizedBox(height: 4),
                                           Text(
-                                            item.observacoes!,
+                                            'Observação interna: ${item.observacoes!}',
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
                                             style: theme.textTheme.bodySmall,
                                           ),
+                                        ],
+                                        if (item.detalhesParaCliente
+                                            case final detalhes?) ...[
+                                          const SizedBox(height: 4),
+                                          Text('Detalhes no PDF: $detalhes'),
                                         ],
                                       ],
                                     ),
@@ -216,7 +221,8 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                           ),
                         ),
                       ),
-                      if (orcamento.observacoes.isNotEmpty) ...[
+                      if (orcamento.observacoes.isNotEmpty ||
+                          orcamento.observacoesParaCliente.isNotEmpty) ...[
                         const SizedBox(height: 16),
                         Card(
                           child: Padding(
@@ -224,14 +230,26 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Observações',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w800,
+                                if (orcamento.observacoes.isNotEmpty) ...[
+                                  Text(
+                                    'Observações internas',
+                                    style: theme.textTheme.titleMedium,
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(orcamento.observacoes),
+                                  const SizedBox(height: 8),
+                                  Text(orcamento.observacoes),
+                                ],
+                                if (orcamento
+                                    .observacoesParaCliente
+                                    .isNotEmpty) ...[
+                                  if (orcamento.observacoes.isNotEmpty)
+                                    const SizedBox(height: 16),
+                                  Text(
+                                    'Observações para o cliente',
+                                    style: theme.textTheme.titleMedium,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(orcamento.observacoesParaCliente),
+                                ],
                               ],
                             ),
                           ),
@@ -292,9 +310,12 @@ class _OrcamentoDetalhePageState extends State<OrcamentoDetalhePage> {
       await acao();
     } catch (e) {
       if (!context.mounted) return;
+      final mensagem = e is PdfOrcamentoException
+          ? e.message
+          : 'Não foi possível gerar o PDF. Confira os textos do orçamento e o formato de página.';
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Erro ao gerar PDF: $e')));
+      ).showSnackBar(SnackBar(content: Text(mensagem)));
     }
   }
 

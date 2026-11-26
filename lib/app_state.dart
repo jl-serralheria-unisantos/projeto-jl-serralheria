@@ -42,6 +42,7 @@ class OrcamentoItem {
     required this.valorUnitario,
     this.origemId,
     this.observacoes,
+    this.detalhesParaCliente,
   });
 
   final int id;
@@ -52,6 +53,7 @@ class OrcamentoItem {
   final String unidade;
   final double valorUnitario;
   final String? observacoes;
+  final String? detalhesParaCliente;
 
   BigInt get subtotalCentavos =>
       CalculoOrcamento.centavosLinha(quantidade, valorUnitario);
@@ -68,6 +70,7 @@ class OrcamentoItem {
     String? unidade,
     double? valorUnitario,
     String? observacoes,
+    String? detalhesParaCliente,
   }) {
     return OrcamentoItem(
       id: id ?? this.id,
@@ -78,6 +81,7 @@ class OrcamentoItem {
       unidade: unidade ?? this.unidade,
       valorUnitario: valorUnitario ?? this.valorUnitario,
       observacoes: observacoes ?? this.observacoes,
+      detalhesParaCliente: detalhesParaCliente ?? this.detalhesParaCliente,
     );
   }
 }
@@ -378,6 +382,7 @@ class AppState extends ChangeNotifier {
     required double desconto,
     required int validadeDias,
     required String observacoes,
+    String observacoesParaCliente = '',
   }) async {
     _validarDadosOrcamento(
       clienteId: clienteId,
@@ -399,6 +404,7 @@ class AppState extends ChangeNotifier {
       valorTotal: valorFinal,
       validadeDias: validadeDias,
       observacoes: observacoes,
+      observacoesParaCliente: observacoesParaCliente,
       itens: itensEmbutidos,
     );
 
@@ -413,6 +419,7 @@ class AppState extends ChangeNotifier {
       valorTotal: orcamento.valorTotal,
       validadeDias: orcamento.validadeDias,
       observacoes: orcamento.observacoes,
+      observacoesParaCliente: orcamento.observacoesParaCliente,
       itens: orcamento.itens,
     );
     orcamentos.insert(0, novo);
@@ -427,6 +434,7 @@ class AppState extends ChangeNotifier {
     required double desconto,
     required int validadeDias,
     required String observacoes,
+    String? observacoesParaCliente,
   }) async {
     _validarDadosOrcamento(
       clienteId: clienteId,
@@ -451,6 +459,7 @@ class AppState extends ChangeNotifier {
       valorTotal: valorFinal,
       validadeDias: validadeDias,
       observacoes: observacoes,
+      observacoesParaCliente: observacoesParaCliente,
       itens: itensEmbutidos,
     );
 
@@ -537,6 +546,7 @@ class AppState extends ChangeNotifier {
             unidade: item.unidade,
             valorUnitario: item.valorUnitario,
             observacoes: item.observacoes,
+            detalhesParaCliente: item.detalhesParaCliente,
           ),
         )
         .toList();

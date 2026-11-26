@@ -6,6 +6,7 @@ import 'package:projeto_jl_serralheria/features/pdf/services/pdf_service.dart';
 import 'package:projeto_jl_serralheria/shared/calculo_orcamento.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   for (final tipo in ['produto', 'serviço']) {
     test('$tipo preserva preço histórico na leitura e na serialização', () {
       for (final bruto in [

@@ -15,6 +15,7 @@ class Orcamento {
   BigInt? get totalRegistradoCentavos =>
       CalculoOrcamento.centavosMonetarios(valorTotal);
   final String observacoes;
+  final String observacoesParaCliente;
   final int validadeDias;
   final List<ItemOrcamentoEmbutido> itens;
 
@@ -26,6 +27,7 @@ class Orcamento {
     required this.desconto,
     required double valorTotal,
     this.observacoes = '',
+    this.observacoesParaCliente = '',
     this.validadeDias = 7,
     this.itens = const [],
   }) : _total = CampoMonetario.novo(valorTotal);
@@ -38,6 +40,7 @@ class Orcamento {
     required this.desconto,
     required CampoMonetario total,
     this.observacoes = '',
+    this.observacoesParaCliente = '',
     this.validadeDias = 7,
     this.itens = const [],
   }) : _total = total;
@@ -78,6 +81,8 @@ class Orcamento {
       else
         'valor_total': valorTotal,
       'observacoes': observacoes,
+      if (observacoesParaCliente.isNotEmpty)
+        'observacoes_para_cliente': observacoesParaCliente,
       'validade_dias': validadeDias,
       'itens': itens.map((i) => i.toMap()).toList(),
     };
@@ -102,6 +107,10 @@ class Orcamento {
         seAusente: () => _calcularValorFinal(itens, desconto),
       ),
       observacoes: _stringValue(map['observacoes']),
+      observacoesParaCliente: switch (map['observacoes_para_cliente']) {
+        final String texto => texto,
+        _ => '',
+      },
       validadeDias: _positiveInt(map['validade_dias'], fallback: 7),
       itens: itens,
     );
@@ -114,6 +123,7 @@ class Orcamento {
     double? desconto,
     double? valorTotal,
     String? observacoes,
+    String? observacoesParaCliente,
     int? validadeDias,
     List<ItemOrcamentoEmbutido>? itens,
   }) {
@@ -127,6 +137,8 @@ class Orcamento {
           ? _total
           : CampoMonetario.novo(valorTotal),
       observacoes: observacoes ?? this.observacoes,
+      observacoesParaCliente:
+          observacoesParaCliente ?? this.observacoesParaCliente,
       validadeDias: validadeDias ?? this.validadeDias,
       itens: itens ?? this.itens,
     );
@@ -141,6 +153,7 @@ class ItemOrcamentoEmbutido {
   final String unidade;
   final double valorUnitario;
   final String? observacoes;
+  final String? detalhesParaCliente;
 
   ItemOrcamentoEmbutido({
     required this.tipo,
@@ -150,6 +163,7 @@ class ItemOrcamentoEmbutido {
     required this.unidade,
     required this.valorUnitario,
     this.observacoes,
+    this.detalhesParaCliente,
   });
 
   BigInt get subtotalCentavos =>
@@ -167,6 +181,8 @@ class ItemOrcamentoEmbutido {
       'unidade': unidade,
       'valor_unitario': valorUnitario,
       'observacoes': observacoes,
+      if (detalhesParaCliente != null)
+        'detalhes_para_cliente': detalhesParaCliente,
     };
   }
 
@@ -179,6 +195,10 @@ class ItemOrcamentoEmbutido {
       unidade: _stringValue(map['unidade'], fallback: 'un'),
       valorUnitario: _doubleValue(map['valor_unitario'], fallback: double.nan),
       observacoes: _optionalString(map['observacoes']),
+      detalhesParaCliente: switch (map['detalhes_para_cliente']) {
+        final String texto => _optionalString(texto),
+        _ => null,
+      },
     );
   }
 }

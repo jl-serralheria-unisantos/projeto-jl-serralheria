@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -7,6 +6,10 @@ import 'package:printing/printing.dart';
 import '../../../data/models/cliente_model.dart';
 import '../../../data/models/orcamento_model.dart';
 import '../../../shared/formatters.dart';
+
+class PdfOrcamentoException extends StateError {
+  PdfOrcamentoException(super.message);
+}
 
 class PdfService {
   const PdfService();
@@ -18,26 +21,39 @@ class PdfService {
   }) async {
     if (orcamento.totalRegistradoCentavos == null ||
         (orcamento.itens.isNotEmpty && orcamento.requerRevisao)) {
-      throw StateError(
+      throw PdfOrcamentoException(
         'Os valores históricos precisam de revisão. Confira e salve o orçamento antes de gerar o PDF.',
       );
     }
-    final document = pw.Document();
+    final fontes = await _fontes;
+    final document = pw.Document(
+      theme: pw.ThemeData.withFont(
+        base: pw.Font.ttf(fontes.$1),
+        bold: pw.Font.ttf(fontes.$2),
+      ),
+    );
 
     document.addPage(
       pw.MultiPage(
         pageFormat: format,
         margin: const pw.EdgeInsets.all(32),
+        footer: (context) => pw.Align(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Text(
+            '${context.pageNumber} / ${context.pagesCount}',
+            style: const pw.TextStyle(color: PdfColors.grey700, fontSize: 9),
+          ),
+        ),
         build: (context) => [
           _cabecalho(orcamento),
           pw.SizedBox(height: 20),
-          _dadosCliente(cliente),
+          ..._dadosCliente(cliente),
           pw.SizedBox(height: 18),
-          if (orcamento.itens.isNotEmpty) _itens(orcamento),
+          ..._itens(orcamento),
           pw.SizedBox(height: 16),
           _totais(orcamento),
           pw.SizedBox(height: 18),
-          _detalhesFinais(orcamento),
+          ..._detalhesFinais(orcamento),
         ],
       ),
     );
@@ -100,60 +116,56 @@ class PdfService {
     );
   }
 
-  pw.Widget _dadosCliente(Cliente? cliente) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(12),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey400),
-        borderRadius: pw.BorderRadius.circular(4),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Text(
-            'Dados do cliente',
-            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-          ),
-          pw.SizedBox(height: 8),
-          _linhaTexto('Nome', cliente?.nome ?? 'Cliente removido'),
-          if (cliente != null) ...[
-            _linhaTexto('Telefone', cliente.telefone),
-            if (_temTexto(cliente.endereco))
-              _linhaTexto('Endereço', cliente.endereco!),
-            if (_temTexto(cliente.observacoes))
-              _linhaTexto('Observações do cliente', cliente.observacoes!),
-          ],
-        ],
-      ),
+  Iterable<pw.Widget> _dadosCliente(Cliente? cliente) sync* {
+    yield pw.Text(
+      'Dados do cliente',
+      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
     );
+    yield pw.SizedBox(height: 8);
+    yield _linhaTexto(
+      'Nome',
+      cliente?.nome ?? 'Cliente removido',
+      paginavel: true,
+    );
+    if (cliente != null) {
+      yield _linhaTexto('Telefone', cliente.telefone, paginavel: true);
+      if (_temTexto(cliente.endereco)) {
+        yield _linhaTexto('Endereço', cliente.endereco!, paginavel: true);
+      }
+    }
   }
 
-  pw.Widget _itens(Orcamento orcamento) {
-    return pw.TableHelper.fromTextArray(
-      border: pw.TableBorder.all(color: PdfColors.grey300),
-      headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
-      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9),
-      cellStyle: const pw.TextStyle(fontSize: 9),
-      cellAlignment: pw.Alignment.centerLeft,
-      headerAlignment: pw.Alignment.centerLeft,
-      columnWidths: {
-        0: const pw.FlexColumnWidth(1.1),
-        1: const pw.FlexColumnWidth(3),
-        2: const pw.FlexColumnWidth(0.8),
-        3: const pw.FlexColumnWidth(0.8),
-        4: const pw.FlexColumnWidth(1.3),
-        5: const pw.FlexColumnWidth(1.3),
-      },
-      headers: const [
-        'Tipo',
-        'Descrição',
-        'Qtd.',
-        'Unid.',
-        'Valor unit.',
-        'Subtotal',
-      ],
-      data: linhasDosItens(orcamento),
-    );
+  // Os bytes são reutilizados por documentos com subconjuntos independentes.
+  static final _fontes = (
+    rootBundle.load('assets/fonts/NotoSans-Regular.ttf'),
+    rootBundle.load('assets/fonts/NotoSans-Bold.ttf'),
+  ).wait;
+
+  Iterable<pw.Widget> _itens(Orcamento orcamento) sync* {
+    final linhas = linhasDosItens(orcamento);
+    for (final (indice, linha) in linhas.indexed) {
+      final detalhes = orcamento.itens[indice].detalhesParaCliente?.trim();
+      yield pw.NewPage(freeSpace: 72);
+      yield pw.Divider(color: PdfColors.grey300);
+      yield pw.Text(
+        '${indice + 1}. ${linha[0]}',
+        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+      );
+      yield pw.Text(linha[1], overflow: pw.TextOverflow.span);
+      if (detalhes != null && detalhes.isNotEmpty) {
+        yield pw.Text(
+          'Detalhes: $detalhes',
+          overflow: pw.TextOverflow.span,
+          style: const pw.TextStyle(fontSize: 10),
+        );
+      }
+      yield pw.Text(
+        '${linha[2]} ${linha[3]}  ×  ${linha[4]}     |     Subtotal: ${linha[5]}',
+        overflow: pw.TextOverflow.span,
+        style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey800),
+      );
+      yield pw.SizedBox(height: 5);
+    }
   }
 
   static List<List<String>> linhasDosItens(Orcamento orcamento) =>
@@ -192,34 +204,29 @@ class PdfService {
     );
   }
 
-  pw.Widget _detalhesFinais(Orcamento orcamento) {
+  Iterable<pw.Widget> _detalhesFinais(Orcamento orcamento) sync* {
     final validade = orcamento.dataCriacao.add(
       Duration(days: orcamento.validadeDias),
     );
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        _linhaTexto('Validade', formatDate(validade)),
-        pw.SizedBox(height: 12),
-        pw.Text(
-          'Observações',
-          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-        ),
-        pw.SizedBox(height: 4),
-        pw.Text(
-          orcamento.observacoes.isEmpty
-              ? 'Sem observações.'
-              : orcamento.observacoes,
-        ),
-      ],
+    yield pw.NewPage(freeSpace: 64);
+    yield _linhaTexto('Validade', formatDate(validade));
+    final observacoes = orcamento.observacoesParaCliente.trim();
+    if (observacoes.isEmpty) return;
+    yield pw.SizedBox(height: 12);
+    yield pw.Text(
+      'Observações para o cliente',
+      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
     );
+    yield pw.SizedBox(height: 4);
+    yield pw.Text(observacoes, overflow: pw.TextOverflow.span);
   }
 
-  pw.Widget _linhaTexto(String label, String value) {
+  pw.Widget _linhaTexto(String label, String value, {bool paginavel = false}) {
     return pw.Padding(
       padding: const pw.EdgeInsets.only(bottom: 4),
       child: pw.RichText(
+        overflow: paginavel ? pw.TextOverflow.span : pw.TextOverflow.visible,
         text: pw.TextSpan(
           children: [
             pw.TextSpan(
